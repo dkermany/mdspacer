@@ -8,6 +8,7 @@ ipykernel = "*"
 numpy = "*"
 matplotlib = "*"
 opencv-python = "*"
+oiffile = "*"
 
 [dev-packages]
 
