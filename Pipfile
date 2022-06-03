@@ -8,6 +8,9 @@ ipykernel = "*"
 numpy = "*"
 matplotlib = "*"
 opencv-python = "*"
+torch = "*"
+torchvision = "*"
+torchaudio = "*"
 
 [dev-packages]
 
