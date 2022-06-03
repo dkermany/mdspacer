@@ -7,11 +7,14 @@ name = "pypi"
 ipykernel = "*"
 numpy = "*"
 matplotlib = "*"
-opencv-python = "*"
 torch = "*"
 torchvision = "*"
 torchaudio = "*"
 oiffile = "*"
+opencv-python = "*"
+pycocotools = "*"
+pillow = "*"
+requests = "*"
 
 [dev-packages]
 
