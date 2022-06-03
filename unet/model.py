@@ -32,7 +32,7 @@ class UNET (nn.Module):
         # Up part of UNET
         for feature in reversed(features):
             self.decoder.append(
-                nn.ConvTranspose2D(
+                nn.ConvTranspose2d(
                     feature*2, feature, kernel_size=2, stride=2
                 )
             )
@@ -54,12 +54,12 @@ class UNET (nn.Module):
 
         for i in range(0, len(self.decoder), 2):
             x = self.decoder[i](x)
-            skip_connections = skip_connections[i//2]
+            skip_connection = skip_connections[i//2]
 
             if x.shape != skip_connection.shape:
                 x = TF.resize(x, size=skip_connection.shape[2: ])
 
-            concat_skip = torch.cat((skip_connection, x), dims=1)
+            concat_skip = torch.cat((skip_connection, x), dim=1)
             x = self.decoder[i+1](concat_skip)
 
         return self.final_conv(x)
