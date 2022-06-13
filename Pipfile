@@ -16,6 +16,8 @@ pycocotools = "*"
 pillow = "*"
 requests = "*"
 tqdm = "*"
+tifffile = "*"
+notebook = "*"
 
 [dev-packages]
 
