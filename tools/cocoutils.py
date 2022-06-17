@@ -21,7 +21,7 @@ def main():
     category_ids = coco.getCatIds()
     categories = coco.loadCats(category_ids)
     category_names = [category["name"] for category in categories]
-    
+
     # Get all image IDs
     image_ids = coco.getImgIds()
 
@@ -32,14 +32,14 @@ def main():
         image_filename = image_info["file_name"]
         image_path = os.path.join(FLAGS.images, image_filename)
         image = cv2.imread(image_path)
-        
+
         # Get annotations for image
         annotation_ids = coco.getAnnIds(imgIds=[image_id])
         annotations = coco.loadAnns(annotation_ids)
 
         # Create label mask
         height, width = image.shape[0], image.shape[1]
-        mask = np.zeros((height, width))
+        mask = np.zeros((height, width), dtype=np.float32)
         for annotation in annotations:
             mask = np.maximum(
                     mask,
@@ -48,7 +48,7 @@ def main():
 
         # Save segmentation mask
         output_path = os.path.join(
-                os.path.dirname(os.path.normpath(FLAGS.images)), 
+                os.path.dirname(os.path.normpath(FLAGS.images)),
                 "masks",
                 f"{os.path.splitext(image_filename)[0]}.png"
         )
@@ -69,6 +69,6 @@ if __name__ == '__main__':
         required=True,
         help="Path to COCO JSON annotations"
     )
-    
+
     FLAGS, _ = parser.parse_known_args()
     main()

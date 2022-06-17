@@ -18,6 +18,8 @@ requests = "*"
 tqdm = "*"
 tifffile = "*"
 notebook = "*"
+patchify = "*"
+jupyterthemes = "*"
 
 [dev-packages]
 
