@@ -27,7 +27,7 @@ NUM_WORKERS = 2
 IMAGE_HEIGHT = 256
 IMAGE_WIDTH = 256
 PIN_MEMORY = True
-LOAD_MODEL = False 
+LOAD_MODEL = False
 
 def train(loader, model, optimizer, loss_fn, scaler):
     for batch_idx, (data, targets) in enumerate(tqdm(loader)):
@@ -38,7 +38,7 @@ def main():
     train_transform = A.Compose(
         [
             A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH),
-            A.Rotate(limit=35, p=1.0),
+            A.Rotate(limit=90, p=0.9),
             A.HorizontalFlip(p=0.5),
             A.VerticalFlip(p=0.1),
             A.Normalize(

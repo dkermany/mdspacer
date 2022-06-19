@@ -3,11 +3,15 @@ url = "https://pypi.python.org/simple"
 verify_ssl = true
 name = "pypi"
 
+[[source]]
+url = "https://download.pytorch.org/whl/cu113/"
+verify_ssl = true
+name = "downloadpytorch"
+
 [packages]
 ipykernel = "*"
 numpy = "*"
 matplotlib = "*"
-torch = "*"
 torchvision = "*"
 torchaudio = "*"
 oiffile = "*"
@@ -20,6 +24,9 @@ tifffile = "*"
 notebook = "*"
 patchify = "*"
 jupyterthemes = "*"
+albumentations = "*"
+iprogress = "*"
+torch = {index="downloadpytorch", version="==1.11.0+cu113"}
 
 [dev-packages]
 
