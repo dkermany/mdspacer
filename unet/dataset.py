@@ -21,8 +21,8 @@ class COCODataset(Dataset):
         self.transform = transform
 
         self.image_filenames = get_filenames(
-                self.image_dir, 
-                ext="jpg", 
+                self.image_dir,
+                ext="jpg",
                 basename=True
         )
         self.mask_filenames = [
@@ -40,15 +40,15 @@ class COCODataset(Dataset):
         mask_path = os.path.join(self.mask_dir, self.mask_filenames[index])
 
         image = cv2.cvtColor(cv2.imread(image_path), cv2.COLOR_BGR2RGB)
-        mask = cv2.imread(mask_path)
-        print(image.dtype, mask.dtype)
+        mask = cv2.imread(mask_path, 0)
 
         if self.transform is not None:
             augmentations = self.transform(image=image, mask=mask)
             image, mask = augmentations["image"], augmentations["mask"]
 
-        # print(f"Image - shape: {image.shape} range: {np.min(image)}-{np.max(image)} dtype: {image.dtype}")
-        # print(f"Mask - shape: {mask.shape} range: {np.min(mask)}-{np.max(mask)} dtype: {mask.dtype}")
+        #print(f"Image - shape: {image.shape} range: {np.min(image)}-{np.max(image)} dtype: {image.dtype}")
+        #print(f"Mask - shape: {mask.shape} range: {np.min(mask)}-{np.max(mask)} dtype: {mask.dtype}")
+        #print(f"Mask shape: {mask.shape}\nImage shape: {image.shape}")
         return image, mask
 
     def get_dataset_mean_and_std(self, dataloader):
