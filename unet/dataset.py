@@ -3,6 +3,7 @@ import sys
 import cv2
 import numpy as np
 import torch
+from sklearn.utils.class_weight import compute_class_weight
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
@@ -33,6 +34,9 @@ class COCODataset(Dataset):
         return len(self.image_filenames)
 
     def __getitem__(self, index):
+        """
+        returns image (torch.Size(3, 256, 256)) and mask (torch.Size(256, 256))
+        """
         assert (os.path.splitext(self.image_filenames[index])[0] ==
                 os.path.splitext(self.mask_filenames[index])[0])
 
@@ -51,6 +55,16 @@ class COCODataset(Dataset):
         #print(f"Mask shape: {mask.shape}\nImage shape: {image.shape}")
         return image, mask
 
+    def get_class_weights(self, dataloader):
+        """
+        Returns Tensor of class weights
+        TODO: Implement version of this that does not crash!
+        """
+        y = torch.Tensor()
+        for i, (_, y_batch) in tqdm(enumerate(dataloader)):
+            y = torch.cat((y, torch.flatten(y_batch)))
+        return compute_class_weight("balanced", classes=torch.unique(y), y=y)
+
     def get_dataset_mean_and_std(self, dataloader):
         """
         Mean and STD over batch, height, and width, but not over the channels
@@ -66,6 +80,7 @@ class COCODataset(Dataset):
             current_batch_size = data.size()[0]
             batch_weight = float(current_batch_size) / dataloader.batch_size
 
+            # mean over batch, height, and width but not over channels
             channels_sum += batch_weight * torch.mean(data, dim=[0,2,3])
             channels_squared_sum += batch_weight * torch.mean(data**2, dim=[0,2,3])
 

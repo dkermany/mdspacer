@@ -1,4 +1,5 @@
 import os
+import cv2
 from glob import glob
 
 def create_directory(path):
@@ -10,3 +11,6 @@ def get_filenames(path, ext="*", basename=False):
     if not basename:
         return sorted(filenames)
     return sorted([os.path.basename(os.path.normpath(f)) for f in filenames])
+
+def BGR2RGB(image):
+    return cv2.cvtColor(image, cv2.COLOR_BGR2RGB)

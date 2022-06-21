@@ -31,18 +31,7 @@ IMAGE_WIDTH = 256
 PIN_MEMORY = True
 LOAD_MODEL = False
 
-def train(loader, model, optimizer, loss_fn, scaler):
-    for batch_idx, (data, targets) in enumerate(tqdm(loader)):
-        data = data.to(device=DEVICE)
-        targets = targets.float().unsqueeze(1).to(device=DEVICE)
-
-
-def main():
-    params = {
-        "batch_size": BATCH_SIZE,
-        "shuffle": False,
-        "num_workers": 1
-    }
+def get_transforms():
     train_transform = A.Compose(
         [
             A.Resize(height=IMAGE_HEIGHT*1.13, width=IMAGE_WIDTH*1.13),
@@ -54,8 +43,8 @@ def main():
             A.ColorJitter(p=0.15),
             A.GaussNoise(p=0.15),
             A.Normalize(
-                mean=[103.6788, 113.7296, 119.6984],
-                std=[72.6042, 68.8787, 70.1635],
+                mean=[0.4690, 0.4456, 0.4062],
+                std=[0.2752, 0.2701, 0.2847],
                 max_pixel_value=255.0
             ),
             ToTensorV2()
@@ -65,16 +54,65 @@ def main():
         [
             A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH),
             A.Normalize(
-                mean=[103.6788, 113.7296, 119.6984],
-                std=[72.6042, 68.8787, 70.1635],
+                mean=[0.4690, 0.4456, 0.4062],
+                std=[0.2752, 0.2701, 0.2847],
                 max_pixel_value=255.0
             ),
             ToTensorV2()
         ]
     )
+    return train_transform, val_transform
 
-    cocodata = COCODataset(image_path, mask_path, transform=transform)
-    cocoloader = DataLoader(cocodata, **params)
+def train_fn(loader, model, optimizer, loss_fn, scaler):
+    loop = tqdm(loader)
+    for batch_idx, (data, targets) in enumerate(loop):
+        data = data.to(device=DEVICE)
+        targets = targets.float().unsqueeze(1).to(device=DEVICE)
+
+        # forward
+        with torch.cuda.amp.autocast():
+            predictions = model(data)
+            loss = loss_fn(predictions, targets)
+
+        # backward
+        optimizer.zero_grad()
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+        scaler.update()
+
+        # update tqdm loop
+        loop.set_postfix(loss=loss.item())
+
+def main():
+    params = {
+        "batch_size": BATCH_SIZE,
+        "shuffle": False,
+        "num_workers": 0
+    }
+
+    train_transform, val_transform = get_transforms()
+    train_cocodata = COCODataset(join(FLAGS.images, "train2017"),
+                                 join(FLAGS.mask, "train2017"),
+                                 transform=train_transform)
+    train_cocoloader = DataLoader(train_cocodata, **params)
+
+    val_cocodata = COCODataset(join(FLAGS.images, "val2017"),
+                               join(FLAGS.mask, "val2017"),
+                               transform=val_transform)
+    val_cocoloader = DataLoader(val_cocodata, **params)
+
+    model = UNET(in_channels=3, out_channels=80)
+    loss_fn = nn.CrossEntropyLoss() # Add class_weights after implementing
+    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
+
+    scaler = torch.cuda.amp.GradScaler()
+    for epoch in range(NUM_EPOCHS):
+        train_fn(train_loader, model, optimizer, loss_fn, scaler)
+
+        # Save model
+        # Check accuracy
+
+
 
 
 if __name__ == "__main__":
@@ -83,7 +121,13 @@ if __name__ == "__main__":
         "--images",
         required=True,
         type=str,
-        help="Path to train/val/test directory"
+        help="Path to train/val/test images directory"
+    )
+    parser.add_argument(
+        "--masks",
+        required=True,
+        type=str,
+        help="Path to train/val/test masks directory"
     )
     FLAGS, _ = parser.parse_known_args()
     main()
