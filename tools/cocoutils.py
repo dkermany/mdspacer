@@ -1,7 +1,7 @@
 """
- Usage: 
+ Usage:
  python cocoutils.py
-        --images /home/dkermany/data/COCO/val2017/ 
+        --images /home/dkermany/data/COCO/val2017/
         --json /home/dkermany/data/COCO/annotations/instances_val2017.json
 """
 
@@ -21,6 +21,11 @@ def main():
     category_ids = coco.getCatIds()
     categories = coco.loadCats(category_ids)
     category_names = [category["name"] for category in categories]
+
+    # Generate an ID key to map original COCO ids to new consecutive class ids
+    # Original 1-90 class IDs with gaps converted to consecutive 1-80
+    # Key: original, Value: new id
+    id_map = {cat_id: i for i, cat_id in enumerate(sorted(category_ids), 1)}
 
     # Get all image IDs
     image_ids = coco.getImgIds()
@@ -42,15 +47,16 @@ def main():
         mask = np.zeros((height, width), dtype=np.float32)
         for annotation in annotations:
             mask = np.maximum(
-                    mask,
-                    coco.annToMask(annotation)*annotation["category_id"]
+                mask,
+                coco.annToMask(annotation) * id_map[annotation["category_id"]]
             )
 
         # Save segmentation mask
         output_path = os.path.join(
-                os.path.dirname(os.path.normpath(FLAGS.images)),
-                "masks",
-                f"{os.path.splitext(image_filename)[0]}.png"
+            os.path.dirname(os.path.normpath(FLAGS.images)),
+            "masks",
+            os.path.basename(FLAGS.images),
+            f"{os.path.splitext(image_filename)[0]}.png"
         )
         create_directory(os.path.dirname(output_path))
         cv2.imwrite(output_path, mask)

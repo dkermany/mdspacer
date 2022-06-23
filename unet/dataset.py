@@ -6,11 +6,7 @@ import torch
 from sklearn.utils.class_weight import compute_class_weight
 from torch.utils.data import Dataset
 from tqdm import tqdm
-
-sys.path.append(
-        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "tools"))
-)
-from utils import get_filenames
+from glob import glob
 
 class COCODataset(Dataset):
     """
@@ -21,13 +17,13 @@ class COCODataset(Dataset):
         self.mask_dir = mask_dir
         self.transform = transform
 
-        self.image_filenames = get_filenames(
-                self.image_dir,
-                ext="jpg",
-                basename=True
+        self.image_filenames = self.get_filenames(
+            self.image_dir,
+            ext="jpg",
+            basename=True
         )
         self.mask_filenames = [
-                f"{os.path.splitext(i)[0]}.png" for i in self.image_filenames
+            f"{os.path.splitext(i)[0]}.png" for i in self.image_filenames
         ]
 
     def __len__(self):
@@ -50,10 +46,15 @@ class COCODataset(Dataset):
             augmentations = self.transform(image=image, mask=mask)
             image, mask = augmentations["image"], augmentations["mask"]
 
-        #print(f"Image - shape: {image.shape} range: {np.min(image)}-{np.max(image)} dtype: {image.dtype}")
-        #print(f"Mask - shape: {mask.shape} range: {np.min(mask)}-{np.max(mask)} dtype: {mask.dtype}")
-        #print(f"Mask shape: {mask.shape}\nImage shape: {image.shape}")
         return image, mask
+
+    @staticmethod
+    def get_filenames(path, ext="*", basename=False):
+        filenames = glob(os.path.join(path, f"*.{ext}"))
+        if not basename:
+            return sorted(filenames)
+        return sorted([os.path.basename(os.path.normpath(f)) for f in filenames])
+
 
     def get_class_weights(self, dataloader):
         """
@@ -90,4 +91,3 @@ class COCODataset(Dataset):
         std = ((channels_squared_sum / num_batches) - (mean ** 2)) ** 0.5
 
         return mean, std
-
