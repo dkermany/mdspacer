@@ -2,10 +2,14 @@ import sys
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torchmetrics
 import albumentations as A
 import argparse
+from time import time
+from torch.utils.tensorboard import SummaryWriter
+from torchmetrics import JaccardIndex, Accuracy
 from albumentations.pytorch import ToTensorV2
-from os.path import abspath, join, dirname
+from os.path import abspath, join, dirname, normpath
 from tqdm import tqdm
 from model import UNET
 from dataset import COCODataset
@@ -14,20 +18,23 @@ sys.path.append(abspath(join(dirname(__file__), "..", "tools")))
 from utils import (
     load_checkpoint,
     save_checkpoint,
-    check_accuracy,
+    create_directory,
 )
 
 # Hyperparameters
-LEARNING_RATE = 1e-4
+LEARNING_RATE = 3e-4
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-BATCH_SIZE = 4
-N_CLASSES = 80
-NUM_EPOCHS = 10
-NUM_WORKERS = 0
+PIN_MEMORY = True if torch.cuda.is_available() else False
+BATCH_SIZE = 100
+N_CLASSES = 80 + 1 # Background class
+NUM_EPOCHS = 25 
+NUM_WORKERS = 4
 IMAGE_HEIGHT = 256
 IMAGE_WIDTH = 256
-PIN_MEMORY = True
 LOAD_MODEL = False
+CHECKPOINT_PATH = "/home/dkermany/BoneSegmentation/checkpoints"
+TENSORBOARD_PATH = "/home/dkermany/BoneSegmentation/tensorboard/COCO"
+create_directory(CHECKPOINT_PATH)
 
 def get_transforms():
     train_transform = A.Compose(
@@ -79,7 +86,7 @@ def load_coco(transforms, params):
 
     return train_loader, val_loader
 
-def one_hot_encoding(label, n_classes=80) -> torch.Tensor:
+def one_hot_encoding(label) -> torch.Tensor:
     """
     One-Hot Encoding for segmentation masks
     Example: Converts (batch, 256, 256) => (batch, n_classes, 256, 256)
@@ -87,7 +94,7 @@ def one_hot_encoding(label, n_classes=80) -> torch.Tensor:
     """
     # nn.function.one_hot returns in CHANNEL_LAST formatting
     # permute needed to convert to CHANNEL_FIRST
-    one_hot = nn.functional.one_hot(label.long(), num_classes=n_classes)
+    one_hot = nn.functional.one_hot(label.long(), num_classes=N_CLASSES)
     return one_hot.permute(0,3,1,2)
 
 def reverse_one_hot_encoding(label, axis=1) -> torch.Tensor:
@@ -98,17 +105,17 @@ def reverse_one_hot_encoding(label, axis=1) -> torch.Tensor:
     """
     return torch.argmax(label, axis=axis)
 
-def train_fn(loader, model, optimizer, loss_fn, scaler):
+def train_fn(loader, model, optimizer, loss_fn, scaler, writer, epoch, step):
+    eval = False
     loop = tqdm(loader)
-    for batch_idx, (data, targets) in enumerate(loop):
+    for data, targets in loop:
         data = data.float().to(device=DEVICE)
-        targets = one_hot_encoding(targets, n_classes=N_CLASSES).float().to(device=DEVICE)
+        targets = one_hot_encoding(targets).float().to(device=DEVICE)
 
         # forward
         with torch.cuda.amp.autocast():
-            predictions = model(data)
-            print(predictions.shape, targets.shape)
-            loss = loss_fn(predictions, targets)
+            logits = model(data)
+            loss = loss_fn(logits, targets)
 
         # backward
         optimizer.zero_grad()
@@ -116,20 +123,81 @@ def train_fn(loader, model, optimizer, loss_fn, scaler):
         scaler.step(optimizer)
         scaler.update()
 
+        # Updates JaccardIndex with batch
+        targets = torch.argmax(targets, axis=1).int()
+        predictions = torch.argmax(logits, dim=1)
+
+        if eval:
+            j = torchmetrics.functional.jaccard_index(
+                predictions,
+                targets,
+                num_classes=N_CLASSES,
+                average="micro",
+                ignore_index=0,
+            )
+            writer.add_scalar("Training IoU", j.item(), global_step=step)
+
+        # # Added metrics to Tensorboard
+        writer.add_scalar("Training loss", loss, global_step=step)
+        step += 1
+
         # update tqdm loop
-        loop.set_postfix(loss=loss.item())
+        loop.set_description(f"Epoch: {epoch}/{NUM_EPOCHS} - Loss: {loss.item()}")
+
+def validate_fn(loader, model, loss_fn, writer, step):
+    # TODO: Class-Weighted Pixel-Wise Accuracy Metric
+    # TODO: Class-Weighted Multiclass Dice Coefficient
+    # TODO: Add Jaccard to Tensorboard (error when using jaccard(x,y) compared
+    # to when using jaccard.update(x,y)
+    model.eval()
+    with torch.no_grad():
+
+        # Class-Weighted mIoU Score
+        jaccard = JaccardIndex(
+            num_classes=N_CLASSES,
+            average="micro",
+            ignore_index=0,
+            mdmc_average="global",
+        ).to(device=DEVICE)
+
+        for data, targets in tqdm(loader):
+            data = data.float().to(device=DEVICE)
+            targets = one_hot_encoding(targets).float().to(device=DEVICE)
+            with torch.cuda.amp.autocast():
+                logits = torch.softmax(model(data), dim=1)
+                loss = loss_fn(logits, targets)
+
+            # Updates JaccardIndex with batch
+            targets = torch.argmax(targets, axis=1).int()
+            predictions = torch.argmax(logits, dim=1)
+            j = jaccard(predictions, targets)
+
+            # Added metrics to Tensorboard
+            writer.add_scalar("Validation loss", loss, global_step=step)
+            writer.add_scalar("Validation IoU", j.item(), global_step=step)
+
+
+        # Average over all batches uisng mdmc_average method
+        total_jaccard = jaccard.compute()
+
+    model.train()
+    return {
+        "jaccard": total_jaccard,
+    }
 
 def main():
     params = {
         "train": {
             "batch_size": BATCH_SIZE,
             "shuffle": True,
-            "num_workers": 0
+            "num_workers": NUM_WORKERS,
+            "pin_memory": PIN_MEMORY,
         },
         "val": {
             "batch_size": BATCH_SIZE,
             "shuffle": False,
-            "num_workers": 0
+            "num_workers": NUM_WORKERS,
+            "pin_memory": PIN_MEMORY,
         }
     }
 
@@ -140,30 +208,53 @@ def main():
     train_loader, val_loader = load_coco(transforms, params)
 
 
-    model = UNET(in_channels=3, out_channels=N_CLASSES).to(device=DEVICE)
+    model = UNET(in_channels=3, out_channels=N_CLASSES)
+    if torch.cuda.device_count() > 1:
+        print(f"Using {torch.cuda.device_count()} GPUs...")
+        model = nn.DataParallel(model)
+
+
+    model.to(device=DEVICE)
     loss_fn = nn.CrossEntropyLoss() # Add class_weights after implementing
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
     if LOAD_MODEL:
         load_checkpoint(torch.load("my_checkpoint.pth.tar"), model)
+
     scaler = torch.cuda.amp.GradScaler()
-
-    #data, targets = next(iter(train_loader))
+    writer = SummaryWriter(TENSORBOARD_PATH)
+    step = 0
+    best_jaccard = 0.
     for epoch in range(NUM_EPOCHS):
-        train_fn(train_loader, model, optimizer, loss_fn, scaler)
+        train_fn(
+            train_loader,
+            model,
+            optimizer,
+            loss_fn,
+            scaler,
+            writer,
+            epoch,
+            step,
+        )
 
-        # Save model
-        #checkpoint = {
-        #    "state_dict": model.state_dict(),
-        #    "optimizer": optimizer.state_dict(),
-        #}
-        #save_checkpoint(checkpoint)
 
         # Check accuracy
-        #check_accuracy(val_loader, model, device=DEVICE)
+        results = validate_fn(val_loader, model, loss_fn, writer, step)
+        print(f"Epoch{epoch} Validation Jaccard: {results['jaccard']}")
 
+        # If this is the best performance so far, save checkpoint
+        if results["jaccard"].item() > best_jaccard:
+            best_jaccard = results["jaccard"].item()
 
-
+            # Save model
+            checkpoint = {
+                "state_dict": model.state_dict(),
+                "optimizer": optimizer.state_dict(),
+            }
+            save_checkpoint(
+                checkpoint,
+                filename=join(CHECKPOINT_PATH, f"unet1.0-coco-epoch{epoch}.pth.tar")
+            )
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

@@ -1,7 +1,9 @@
 import os
 import sys
 import cv2
+import torch
 from abc import ABC, abstractmethod
+from tqdm import tqdm
 from glob import glob
 from sklearn.metrics import (
     jaccard_score, accuracy_score, precision_score, recall_score
@@ -22,47 +24,31 @@ def load_checkpoint(checkpoint, model):
     print(f"=> Loading checkpoint")
     model.load_state_dict(checkpoint["state_dict"])
 
-def dice_score(y, preds):
-    assert preds.shape[1] == y.shape[1]
+def dice_coef(y_true, y_pred):
     smooth = 1.
+    y_pred_f = torch.flatten(y_pred)
+    y_true_f = torch.flatten(y_true)
 
-    xflat = torch.flatten(preds)
-    yflat = torch.flatten(y)
-    intersection = (xflat * yflat).sum()
+    intersection = (y_pred_f * y_true_f).sum()
+    y_sum = y_pred_f.sum() + y_true_f.sum() 
 
-    return (2. * intersection + smooth) / (xflat.sum() + yflat.sum() + smooth)
+    return (2. * intersection + smooth) / (y_sum + smooth)
 
-def pixelwise_accuracy(y, preds):
-    assert preds.shape[1] == y.shape[1]
-    return (preds == y).sum() / y.shape[1]
+def dice_coef_multiclass(y_true, y_pred, n_classes=80):
+    dice = 0.
+    print(torch.unique(y_true).shape)
+    #for i in range(n_classes):
 
-def check_accuracy(loader, model, device="cuda"):
-    model.eval()
-    total_y, total_preds = torch.Tensor(), torch.Tensor()
-    with torch.no_grad():
-        for x, y in loader:
-            x = x.to(device)
-            y = y.to(device).unsqueeze(1)
-            probs = torch.softmax(model(x), dim=1)
-            preds = torch.argmax(probs, dim=1)
-            total_y = torch.cat((total_y, y), dim=0)
-            total_preds = torch.cat((total_preds, preds), dim=0)
+    #    weight = (torch.numel(y_true) / n_classes) / torch.numel(y_true[y_true==i])
+    #    print(y_true.shape, torch.unique(y_true))
+    #    print(f"{i}/{n_classes} - {torch.numel(y_true[y_true==i])}/{torch.numel(y_true)}")
+    #    dice += weight * dice_coef(y_true[i,:,:], y_pred[i,:,:])
+    #return dice / n_classes
+    return 1
 
-    accuracy = accuracy_score(total_y, total_preds)
-    precision = precision_score(total_y, total_preds)
-    recall = recall_score(total_y, total_preds)
-    IoU = jaccard_score(total_y, total_preds)
-    dice = dice_score(total_y, total_preds)
+def pixelwise_accuracy(y, y_pred):
+    return (y_pred == y).sum() / y.shape[1]
 
-    print(f"""
-        Pixel-wise Accuracy: {accuracy}\n
-        Precision: {precision}\n
-        Recall: {recall}\n
-        IoU: {IoU}\n
-        Dice: {dice}
-    """)
-
-    model.train()
 
 
 

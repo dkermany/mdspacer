@@ -28,6 +28,8 @@ albumentations = "*"
 iprogress = "*"
 torch = {index="downloadpytorch", version="==1.11.0+cu113"}
 scikit-learn = "*"
+torchmetrics = "*"
+tensorboard = "*"
 
 [dev-packages]
 

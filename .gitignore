@@ -1,6 +1,8 @@
 # Custom
 *.tif
 *.tiff
+checkpoints/*
+tensorboard/*
 
 
 # Byte-compiled / optimized / DLL files
