@@ -51,6 +51,8 @@ class COCODataset(Dataset):
     @staticmethod
     def get_filenames(path, ext="*", basename=False):
         filenames = glob(os.path.join(path, f"*.{ext}"))
+        if len(filenames) == 0:
+            raise ValueError(f"No files found at path: {path}")
         if not basename:
             return sorted(filenames)
         return sorted([os.path.basename(os.path.normpath(f)) for f in filenames])

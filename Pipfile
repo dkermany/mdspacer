@@ -26,12 +26,18 @@ patchify = "*"
 jupyterthemes = "*"
 albumentations = "*"
 iprogress = "*"
-torch = {index="downloadpytorch", version="==1.11.0+cu113"}
 scikit-learn = "*"
 torchmetrics = "*"
 tensorboard = "*"
+torchinfo = "*"
+seaborn = "*"
+pytest = "*"
 
 [dev-packages]
 
 [requires]
 python_version = "3.8"
+
+[packages.torch]
+index = "downloadpytorch"
+version = "==1.11.0+cu113"
