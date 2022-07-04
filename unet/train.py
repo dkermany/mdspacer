@@ -8,6 +8,7 @@ import argparse
 import matplotlib.pyplot as plt
 from datetime import datetime
 from torch.utils.tensorboard import SummaryWriter
+from torch.utils.data.dataloader import DataLoader
 from torchmetrics import JaccardIndex, Accuracy
 from torchinfo import summary
 from albumentations.pytorch import ToTensorV2
@@ -102,7 +103,7 @@ class UNetTrainer:
         self.batch_idx = 0
         self.metrics = {"loss": [], "acc": []}
 
-    def get_transforms(self) -> dict:
+    def get_transforms(self) -> dict[str, A.Compose]:
         train_transform = A.Compose(
             [
                 A.Resize(
@@ -137,13 +138,17 @@ class UNetTrainer:
         )
         return {"train": train_transform, "val": val_transform}
 
-    def get_coco_loaders(self, transforms) -> tuple:
+    def get_coco_loaders(
+        self,
+        transforms: dict[str, A.Compose]
+    ) -> tuple[DataLoader[Any]]:
+
         train_ds = COCODataset(
             join(FLAGS.images, "train2017"),
             join(FLAGS.masks, "train2017"),
             transform=transforms["train"]
         )
-        train_loader = torch.utils.data.DataLoader(
+        train_loader = DataLoader(
             train_ds,
             batch_size=self.batch_size,
             shuffle=True,
@@ -156,7 +161,7 @@ class UNetTrainer:
             join(FLAGS.masks, "val2017"),
             transform=transforms["val"]
         )
-        val_loader = torch.utils.data.DataLoader(
+        val_loader = DataLoader(
             val_ds,
             batch_size=self.batch_size,
             shuffle=False,
@@ -166,7 +171,7 @@ class UNetTrainer:
 
         return train_loader, val_loader
 
-    def one_hot_encoding(self, label) -> torch.Tensor:
+    def one_hot_encoding(self, label: torch.Tensor) -> torch.Tensor:
         """
         One-Hot Encoding for segmentation masks
         Example: Converts (batch, 256, 256) => (batch, num_classes, 256, 256)
@@ -182,8 +187,8 @@ class UNetTrainer:
 
     def train_fn(
         self,
-        loader,
-        epoch,
+        loader: DataLoader[Any],
+        epoch: int,
     ):
         loop = tqdm(loader)
         for i, (data, targets) in enumerate(loop):
@@ -221,7 +226,7 @@ class UNetTrainer:
                 accuracy.item()
             ))
 
-    def validate_fn(self, loader) -> dict:
+    def validate_fn(self, loader: DataLoader[Any]) -> dict:
         """
         Performs inference on the entire validation loader and calculates
         loss and mean jaccard index. Meant to be used at the end of training
@@ -273,7 +278,7 @@ class UNetTrainer:
             "accuracy": mean_accuracy,
         }
 
-    def validate_one_batch(self, loader) -> dict:
+    def validate_one_batch(self, loader: DataLoader[Any]) -> dict:
         """
         Performs inference only on the first batch of the validation set and
         calculates loss and the mean jaccard index. Meant to be used after

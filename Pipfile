@@ -26,17 +26,17 @@ patchify = "*"
 jupyterthemes = "*"
 albumentations = "*"
 iprogress = "*"
-scikit-learn = "*"
 torchmetrics = "*"
 tensorboard = "*"
 torchinfo = "*"
 seaborn = "*"
 pytest = "*"
+typing-extensions = "*"
 
 [dev-packages]
 
 [requires]
-python_version = "3.8"
+python_version = "3.9"
 
 [packages.torch]
 index = "downloadpytorch"
