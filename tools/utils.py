@@ -16,15 +16,6 @@ def create_directory(path):
 def BGR2RGB(image):
     return cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-def save_checkpoint(state, filename="my_checkpoint.pth.tar"):
-    print(f"=> Saving checkpoint: {filename}")
-    torch.save(state, filename)
-
-def load_checkpoint(checkpoint_path, model, optimizer):
-    print(f"=> Loading checkpoint")
-    checkpoint = torch.load(checkpoint_path)
-    model.load_state_dict(checkpoint["state_dict"])
-    optimizer.load_state_dict(checkpoint["optimizer"])
 
 def dice_coef(y_true, y_pred):
     smooth = 1.

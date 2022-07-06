@@ -7,22 +7,14 @@ import albumentations as A
 import argparse
 import matplotlib.pyplot as plt
 from datetime import datetime
-from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data.dataloader import DataLoader
-from torchmetrics import JaccardIndex, Accuracy
 from torchinfo import summary
 from albumentations.pytorch import ToTensorV2
 from os.path import abspath, join, dirname, normpath
 from tqdm import tqdm
-from model import UNET
-from dataset import COCODataset
-
-sys.path.append(abspath(join(dirname(__file__), "..", "tools")))
-from utils import (
-    load_checkpoint,
-    save_checkpoint,
-    create_directory,
-)
+from unet.model import UNET
+from unet.dataset import COCODataset
+from unet.utils import create_directory
 
 # Hyperparameters
 LEARNING_RATE = 5e-4
@@ -33,9 +25,7 @@ NUM_CLASSES = 80 + 1 # Background class
 NUM_EPOCHS = 80
 NUM_WORKERS = 4
 IMAGE_SIZE = 256
-TENSORBOARD_PATH = "/home/dkermany/BoneSegmentation/tensorboard/COCO"
-
-CHECKPOINT_PATH = "/home/dkermany/BoneSegmentation/checkpoints/{}".format(
+CHECKPOINT_DIR = "/home/dkermany/BoneSegmentation/checkpoints/{}".format(
     datetime.today().strftime("%m%d%Y")
 )
 
@@ -44,14 +34,24 @@ class UNetTrainer:
     Performs training and transfer learning using UNet
 
     Default behavior is to train learnable parameters from scratch,
-    however passing a path to a *.pth.tar checkpoint in the load_path
+    however passing a path to a *.pth.tar checkpoint in the checkpoint_path
     parameter will:
         1. Freeze all layers
 
 
     Usage
-        > trainer = UNetTrainer(**params)
+        > trainer = UNetTrainer(**args)
         > trainer.run()
+
+    Arguments:
+        - checkpoint_path (str): path to .pth.tar file containing UNet
+                                 parameters to reinitialize
+        - freeze (bool): If False (default), all learnable parameters are
+                         left unfrozen. If True, all weights except for
+                         the final convolutional layer will be frozen for
+                         retraining of final layer, followed by unfreezing
+                         the layers and finetuning at a lower learning
+                         rate.
     """
     def __init__(
         self,
@@ -60,20 +60,20 @@ class UNetTrainer:
         batch_size: int = 1,
         num_epochs: int = 1,
         learning_rate: float = 3e-4,
-        num_workers: int = 1,
+        checkpoint_dir: str = "",
+        freeze: bool = False,
+        num_workers: int = 0,
         pin_memory: bool = False,
-        load_path: str = "",
-        tensorboard_path: str = "./",
     ):
         self.image_size = image_size
         self.num_classes = num_classes
         self.batch_size = batch_size
         self.num_epochs = num_epochs
         self.learning_rate = learning_rate
+        self.checkpoint_dir = checkpoint_dir
+        self.freeze = freeze
         self.num_workers = num_workers
         self.pin_memory = pin_memory
-        self.load_path = load_path
-        self.tensorboard_path = tensorboard_path
 
         # Initialize UNet model
         self.model = UNET(in_channels=3, out_channels=self.num_classes)
@@ -89,6 +89,9 @@ class UNetTrainer:
             lr=self.learning_rate,
         )
 
+        if self.checkpoint_dir != "":
+            self.load_checkpoint()
+
         # Casts model to selected device (CPU vs GPU)
         self.model.to(device=DEVICE)
 
@@ -98,10 +101,43 @@ class UNetTrainer:
             self.model = nn.DataParallel(self.model)
 
         self.scaler = torch.cuda.amp.GradScaler()
-        create_directory(CHECKPOINT_PATH)
+        create_directory(CHECKPOINT_DIR)
 
         self.batch_idx = 0
         self.metrics = {"loss": [], "acc": []}
+
+    def load_checkpoint(self) -> None:
+        """
+        Sets checkpoint path and specifies if loaded weights will be frozen for
+        retraining or left unfrozen for evaluation or continuation of training
+        """
+        if not self.checkpoint_path.endswith(".pth.tar"):
+            err = f"""Checkpoint {self.checkpoint_path} not valid checkpoint file
+                      type (expected: .pth.tar)"""
+            raise ValueError(err)
+
+        print(f"==> Loading checkpoint: {self.checkpoint_path}")
+
+        # loads checkpoint into model and optimizer using state dicts
+        checkpoint = torch.load(checkpoint_path)
+        self.model.load_state_dict(checkpoint["state_dict"])
+        self.optimizer.load_state_dict(checkpoint["optimizer"])
+
+        # Unfrozen, to continue or evaluate
+        if not freeze:
+            for param in self.model.parameters():
+                param.requires_grad = True
+        # Freeze all layers, except final layer
+        else:
+            for name, param in self.model.named_parameters():
+                if name.startswith("final_conv"):
+                    param.requires_grad = True
+                else:
+                    param.requires_grad = False
+
+    def save_checkpoint(self, state: dict[str, object], filename: str) -> None:
+        print(f"=> Saving checkpoint: {filename}")
+        torch.save(state, filename)
 
     def get_transforms(self) -> dict[str, A.Compose]:
         train_transform = A.Compose(
@@ -141,7 +177,7 @@ class UNetTrainer:
     def get_coco_loaders(
         self,
         transforms: dict[str, A.Compose]
-    ) -> tuple[DataLoader[Any]]:
+    ) -> tuple[DataLoader[object]]:
 
         train_ds = COCODataset(
             join(FLAGS.images, "train2017"),
@@ -187,7 +223,7 @@ class UNetTrainer:
 
     def train_fn(
         self,
-        loader: DataLoader[Any],
+        loader: DataLoader[object],
         epoch: int,
     ):
         loop = tqdm(loader)
@@ -206,7 +242,6 @@ class UNetTrainer:
             self.scaler.step(self.optimizer)
             self.scaler.update()
 
-            # Updates JaccardIndex with batch
             targets = torch.argmax(targets, axis=1).int()
             predictions = torch.argmax(logits, dim=1)
 
@@ -226,59 +261,7 @@ class UNetTrainer:
                 accuracy.item()
             ))
 
-    def validate_fn(self, loader: DataLoader[Any]) -> dict:
-        """
-        Performs inference on the entire validation loader and calculates
-        loss and mean jaccard index. Meant to be used at the end of training
-        since the function takes about 40minutes to run
-        """
-        # TODO: Class-Weighted Pixel-Wise Accuracy Metric
-        # TODO: Class-Weighted Multiclass Dice Coefficient
-        # Set model into evaluation mode
-        self.model.eval()
-        with torch.no_grad():
-
-            # Class-Weighted mIoU Score
-            jaccard = JaccardIndex(
-                num_classes=self.num_classes,
-                average="micro",
-                ignore_index=0,
-                mdmc_average="global",
-            ).to(device=DEVICE)
-
-            for data, targets in tqdm(loader):
-                data = data.float().to(device=DEVICE)
-                targets = self.one_hot_encoding(targets).float().to(device=DEVICE)
-                with torch.cuda.amp.autocast():
-                    logits = torch.softmax(self.model(data), dim=1)
-                    loss = self.loss_fn(logits, targets)
-
-                # Change tensor shape 
-                # (batch, n_classes, size, size) -> (batch, size, size)
-                targets = torch.argmax(targets, axis=1).int()
-                predictions = torch.argmax(logits, dim=1)
-
-                # Pixel-wise accuracy
-                accuracy += (predictions == targets).sum() / torch.numel(targets)
-
-                # Updates JaccardIndex with batch
-                j = jaccard(predictions, targets)
-
-            mean_accuracy = accuracy / len(loader)
-
-            # Average over all batches uisng mdmc_average method
-            total_jaccard = jaccard.compute()
-
-        # Return model to train mode
-        self.model.train()
-
-        return {
-            "loss": loss,
-            "jaccard": total_jaccard,
-            "accuracy": mean_accuracy,
-        }
-
-    def validate_one_batch(self, loader: DataLoader[Any]) -> dict:
+    def validate_one_batch(self, loader: DataLoader[object]) -> dict:
         """
         Performs inference only on the first batch of the validation set and
         calculates loss and the mean jaccard index. Meant to be used after
@@ -319,6 +302,61 @@ class UNetTrainer:
             "accuracy": accuracy.item(),
         }
 
+    def validate_fn(self, loader: DataLoader[object]) -> dict:
+        """
+        Performs inference only on the entire validation set and
+        calculates loss and the mean jaccard index. Meant to be used after
+        model training is complete
+        """
+        # Set model into evaluation mode
+        self.model.eval()
+        with torch.no_grad():
+            running_loss = 0.
+            running_accuracy = 0.
+            running_jaccard = 0.
+            loop = tqdm(loader)
+            for data, targets in loop:
+                data = data.float().to(device=DEVICE)
+                targets = self.one_hot_encoding(targets).float().to(device=DEVICE)
+                with torch.cuda.amp.autocast():
+                    logits = torch.softmax(self.model(data), dim=1)
+                    loss = self.loss_fn(logits, targets)
+
+                # Change tensor shape 
+                # (batch, n_classes, size, size) -> (batch, size, size)
+                targets = torch.argmax(targets, axis=1).int()
+                predictions = torch.argmax(logits, dim=1)
+
+                # Pixel-wise accuracy
+                accuracy = (predictions == targets).sum() / torch.numel(targets)
+
+                # Jaccard
+                jaccard = torchmetrics.functional.jaccard_index(
+                    predictions,
+                    targets,
+                    num_classes=self.num_classes,
+                    average="micro",
+                    ignore_index=0,
+                )
+
+                # Add metrics
+                running_loss += loss.item()
+                running_accuracy += accuracy.item()
+                running_jaccard += jaccard.item()
+
+        mean_loss = running_loss / len(loader)
+        mean_accuracy = running_accuracy / len(loader)
+        mean_jaccard = running_jaccard / len(loader)
+
+        # Return model to train mode
+        self.model.train()
+
+        return {
+            "loss": mean_loss,
+            "accuracy": mean_accuracy,
+            "jaccard": mean_jaccard,
+        }
+
     def run(self):
         # Load transforms
         transforms = self.get_transforms()
@@ -326,20 +364,6 @@ class UNetTrainer:
         # Load Datasets
         train_loader, val_loader = self.get_coco_loaders(transforms)
 
-        if self.load_path != "":
-            print(f"Loading checkpoint at {self.load_path}")
-            # Updates model and optimizer state dicts
-            # load_checkpoint(self.load_path, self.model, self.optimizer)
-
-            # if finetune:
-            #     for param in model.parameters():
-            #         param.requires_grad = True
-            # else:
-            #     for name, param in model.named_parameters():
-            #         if name.startswith("final_conv"):
-            #             param.requires_grad = True
-            #         else:
-            #             param.requires_grad = False
 
         best_loss = 9999.
         for epoch in range(self.num_epochs):
@@ -365,7 +389,7 @@ class UNetTrainer:
                 }
                 save_checkpoint(
                     checkpoint,
-                    filename=join(CHECKPOINT_PATH,
+                    filename=join(CHECKPOINT_DIR,
                                   f"unet1.0-coco-epoch{epoch}.pth.tar")
                 )
 
@@ -383,11 +407,11 @@ class UNetTrainer:
         pd.DataFrame(
             self.metrics["loss"], 
             columns=["Batch Number", "Loss", "Mode"],
-        ).to_csv(join(CHECKPOINT_PATH, "loss.csv"))
+        ).to_csv(join(CHECKPOINT_DIR, "loss.csv"))
         pd.DataFrame(
             self.metrics["acc"], 
             columns=["Batch Number", "Accuracy", "Mode"],
-        ).to_csv(join(CHECKPOINT_PATH, "accuracy.csv"))
+        ).to_csv(join(CHECKPOINT_DIR, "accuracy.csv"))
 
 
 if __name__ == "__main__":
@@ -405,12 +429,21 @@ if __name__ == "__main__":
         help="Path to train/val/test masks directory"
     )
     parser.add_argument(
-        "--load",
+        "--checkpoint",
         default="",
         type=str,
-        help="Path to checkpoint (.pth.tar) if loading"
+        help="Path to checkpoint (.pth.tar) from which to load"
+    )
+    parser.add_argument(
+        "--freeze",
+        default=False,
+        type=bool,
+        help="Whether to perform training or inference on validation"
     )
     FLAGS, _ = parser.parse_known_args()
+
+    if FLAGS.eval and FLAGS.checkpoint == "":
+        raise ValueError("Must specify a checkpoint file (.pth.tar) for eval")
 
     trainer = UNetTrainer(
         image_size=IMAGE_SIZE,
@@ -418,9 +451,11 @@ if __name__ == "__main__":
         batch_size=BATCH_SIZE,
         num_epochs=NUM_EPOCHS,
         learning_rate=LEARNING_RATE,
+        freeze=FLAGS.freeze,
         num_workers=NUM_WORKERS,
         pin_memory=PIN_MEMORY,
-        load_path=CHECKPOINT_PATH,
-        tensorboard_path=TENSORBOARD_PATH,
     )
+
+
     trainer.run()
+
