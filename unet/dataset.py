@@ -114,9 +114,11 @@ class CoNSePDataset(BaseDataset):
         """
         returns image (torch.Size(3, 256, 256)) and mask (torch.Size(256, 256))
         """
-        if (splitext(self.image_filenames[index])[0] !=
-                splitext(self.mask_filenames[index])[0]):
-            raise ValueError("Image and Mask names are not identical")
+        image_filename = splitext(self.image_filenames[index])[0]
+        mask_filename = splitext(self.mask_filenames[index])[0]
+        if image_filename != mask_filename:
+            raise ValueError(f"""Image {image_filename} and Mask\
+                             {mask_filename} names are not identical""")
 
         image_path = join(self.image_dir, self.image_filenames[index])
         mask_path = join(self.mask_dir, self.mask_filenames[index])
@@ -157,9 +159,11 @@ class COCODataset(BaseDataset):
         """
         returns image (torch.Size(3, 256, 256)) and mask (torch.Size(256, 256))
         """
-        if (splitext(self.image_filenames[index])[0] ==
-                splitext(self.mask_filenames[index])[0]):
-            raise ValueError("Image and Mask names are not identical")
+        image_filename = splitext(self.image_filenames[index])[0]
+        mask_filename = splitext(self.mask_filenames[index])[0]
+        if image_filename != mask_filename:
+            raise ValueError(f"""Image {image_filename} and Mask\
+                             {mask_filename} names are not identical""")
 
         image_path = join(self.image_dir, self.image_filenames[index])
         mask_path = join(self.mask_dir, self.mask_filenames[index])

@@ -6,6 +6,8 @@ import torchmetrics
 import albumentations as A
 import argparse
 import matplotlib.pyplot as plt
+import seaborn as sns
+import pandas as pd
 from datetime import datetime
 from torch.utils.data.dataloader import DataLoader
 from torchinfo import summary
@@ -14,7 +16,7 @@ from os.path import abspath, join, dirname, normpath
 from tqdm import tqdm
 from unet.model import UNET
 from unet.dataset import COCODataset
-from unet.utils import create_directory
+from tools.utils import create_directory
 
 # Hyperparameters
 LEARNING_RATE = 5e-4
@@ -28,6 +30,180 @@ IMAGE_SIZE = 256
 CHECKPOINT_DIR = "/home/dkermany/BoneSegmentation/checkpoints/{}".format(
     datetime.today().strftime("%m%d%Y")
 )
+
+class UNetMetrics:
+    """
+    Class used to track, compute, and manage metrics throughout UNet training
+    and validation
+
+    Arguments:
+        - num_classes (int): number of classes
+    """
+    def __init__(self, num_classes: int):
+        self.num_classes = num_classes
+        self._train = True
+
+        # parameters to be passed to torchmetric classes
+        params = {
+            "num_classes": self.num_classes,
+            "ignore_index": 0,
+            "mdmc_average": "global",
+            "average": "micro",
+        }
+
+        # holder for torchmetric instances
+        self.metrics: dict[str, dict[str, object]] = {
+            stage: {
+                "acc": torchmetrics.Accuracy(**params).to(device=DEVICE),
+                "dice": torchmetrics.Dice(**params).to(device=DEVICE),
+              # "iou": torchmetrics.JaccardIndex(**params).to(device=DEVICE),
+            } for stage in ["train", "val"]
+        }
+
+        self.plots: dict[str, dict[str, list]] = {
+            stage: {
+                "step": [],
+                "loss": [],
+                "acc": [],
+                "dice": [],
+            } for stage in ["train", "val"]
+        }
+
+    def train(self):
+        """
+        Puts instance into "train" mode and updates the training metrics and plot
+        """
+        self._train = True
+
+    def eval(self):
+        """
+        Puts instance into "eval" mode and updates the validation metrics and plot
+        """
+        self._train = False
+
+    def update(self, step: int, loss: float, preds: Tensor, targets: Tensor):
+        """
+        Update metrics with new batch of data
+
+        Arguments:
+            - step (int): batch index corresponding with the provided data
+            - loss (float): mean batch cross-entropy loss
+            - preds (torch.Tensor): predicted labels with shape (N, H, W)
+            - targets (torch.Tensor): targets with shape (N, H, W)
+        """
+        stage = "train" if self._train else "val"
+
+        acc = self.metrics[stage]["acc"](preds, targets)
+        dice = self.metrics[stage]["dice"](preds, targets)
+
+        self.plots[stage]["step"].append(step)
+        self.plots[stage]["loss"].append(loss)
+        self.plots[stage]["acc"].append(acc)
+        self.plots[stage]["dice"].append(dice)
+
+    def compute(self) -> dict[str, dict[str, float]]:
+        """
+        Returns dictionary containing final average metrics
+        """
+        result = {}
+        for stage, m in self.metrics.items():
+            for metric_name, metric in m.items():
+                result[stage] = {
+                    metric_name: metric.compute()
+                }
+        return result
+
+    def _to_dataframe(self) -> pd.DataFrame:
+        """
+        Rearrange metric data into "long-form" pandas dataframe
+        https://seaborn.pydata.org/tutorial/data_structure.html
+        """
+        df_list = []
+        for stage_name, stage in self.plots.items():
+            for metric_name, values in stage.items():
+                # Exclude batch number from metrics
+                if metric_name != "batch":
+                    stage_col = [alt_names[stage_name]] * len(values)
+                    metric_col = [alt_names[metric_name]] * len(values)
+
+                    # Concatenate rows into df_list
+                    df_list += list(zip(
+                        self.plots[stage_name]["batch"],
+                        stage_col,
+                        metric_col,
+                        values
+                    ))
+
+        # Generate dataframe
+        df = pd.DataFrame(df_list, columns=[
+            "Batch",
+            "Stage",
+            "Metrics",
+            "Value",
+        ])
+        return df
+
+    def plot_graphs(self, output_dir: str):
+        """
+        Plots training and validation curves using seaborn and saves the images
+        to the "output" path
+
+        Arguments:
+            - output_dir (str): path to directory in which plot will be saved
+        """
+        # Key to better formatted strings for plot
+        alt_names = {
+            "loss": "Loss",
+            "acc": "Accuracy",
+            "dice": "Dice Score",
+            "train": "Training",
+            "val": "Validation",
+        }
+
+        # Format data into "long-form" dataframe for seaborn
+        df = self.to_dataframe()
+
+        # Set seaborn image size and font scaling
+        sns.set(
+            rc={"figure.figsize": (16, 9)},
+            font_scale=1.5,
+        )
+
+        # Generate seaborn lineplot
+        # Colors different based on metric
+        # Style (solid v. dashed) based on training or validation
+        # Dashes specified with list of tuples: (segment, gap)
+        lplot = sns.lineplot(
+            x="Batch",
+            y="Value",
+            hue="Metrics",
+            style="Stage",
+            data=df,
+            dashes=[(1,0),(6,3)],
+        )
+
+        # Remove y-axis label
+        lplot.set(ylabel=None)
+
+        # Set plot title
+        plt.title("Training Loss and Accuracy Curves")
+
+        # Move legend to outside upper-right corner of image
+        plt.legend(bbox_to_anchor=(1.02, 1), loc="upper left", borderaxespad=0)
+
+        # Save image to disk
+        lplot.figure.savefig(join(output_dir, "training_curves.png"))
+
+    def write_to_file(self, filename: str):
+        """
+        Writes data to csv in "long form"
+
+        Arguments:
+            - filename (str): path to .csv file to be saved
+        """
+        df = self._to_dataframe()
+        df.to_csv(filename, mode="w", index=False)
+
 
 class UNetTrainer:
     """
@@ -103,8 +279,8 @@ class UNetTrainer:
         self.scaler = torch.cuda.amp.GradScaler()
         create_directory(CHECKPOINT_DIR)
 
-        self.batch_idx = 0
-        self.metrics = {"loss": [], "acc": []}
+        # Create UNetMetrics instance
+        self.metrics = UNetMetrics(self.num_classes)
 
     def load_checkpoint(self) -> None:
         """
@@ -182,6 +358,8 @@ class UNetTrainer:
         train_ds = COCODataset(
             join(FLAGS.images, "train2017"),
             join(FLAGS.masks, "train2017"),
+            image_ext="jpg",
+            mask_ext="png",
             transform=transforms["train"]
         )
         train_loader = DataLoader(
@@ -195,6 +373,8 @@ class UNetTrainer:
         val_ds = COCODataset(
             join(FLAGS.images, "val2017"),
             join(FLAGS.masks, "val2017"),
+            image_ext="jpg",
+            mask_ext="png",
             transform=transforms["val"]
         )
         val_loader = DataLoader(
@@ -204,7 +384,6 @@ class UNetTrainer:
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,
         )
-
         return train_loader, val_loader
 
     def one_hot_encoding(self, label: torch.Tensor) -> torch.Tensor:
@@ -249,9 +428,8 @@ class UNetTrainer:
             accuracy = (predictions == targets).sum() / torch.numel(targets)
 
             # Add metrics
-            self.batch_idx = epoch * len(loader) + i
-            self.metrics["loss"].append((self.batch_idx, loss.item(), "train"))
-            self.metrics["acc"].append((self.batch_idx, accuracy.item(), "train"))
+            for _, metric in self.metrics["train"].items():
+                result = metric(predictions, targets)
 
             # update tqdm loop
             loop.set_description("Epoch: {}/{} - Loss: {:.2f}, Acc: {:.2%}".format(
@@ -291,8 +469,11 @@ class UNetTrainer:
             accuracy = (predictions == targets).sum() / torch.numel(targets)
 
             # Add metrics
-            self.metrics["loss"].append((self.batch_idx, loss.item(), "val"))
-            self.metrics["acc"].append((self.batch_idx, accuracy.item(), "val"))
+            print(f"""Metric Calculations - input sizes - pred:
+                  {predictions.shape}, targets: {targets.shape}""")
+            for name, metric in self.metrics["val"].items():
+                result = metric(predictions, targets)
+                print("val", name, result)
 
         # Return model to train mode
         self.model.train()
@@ -313,7 +494,6 @@ class UNetTrainer:
         with torch.no_grad():
             running_loss = 0.
             running_accuracy = 0.
-            running_jaccard = 0.
             loop = tqdm(loader)
             for data, targets in loop:
                 data = data.float().to(device=DEVICE)
@@ -327,26 +507,18 @@ class UNetTrainer:
                 targets = torch.argmax(targets, axis=1).int()
                 predictions = torch.argmax(logits, dim=1)
 
-                # Pixel-wise accuracy
-                accuracy = (predictions == targets).sum() / torch.numel(targets)
-
-                # Jaccard
-                jaccard = torchmetrics.functional.jaccard_index(
-                    predictions,
-                    targets,
-                    num_classes=self.num_classes,
-                    average="micro",
-                    ignore_index=0,
-                )
-
                 # Add metrics
+                print(f"""Metric Calculations - input sizes - pred:
+                      {predictions.shape}, targets: {targets.shape}""")
+                for name, metric in self.metrics["val"].items():
+                    result = metric(predictions, targets).item()
+                    print("val", name, result)
+
                 running_loss += loss.item()
                 running_accuracy += accuracy.item()
-                running_jaccard += jaccard.item()
 
         mean_loss = running_loss / len(loader)
         mean_accuracy = running_accuracy / len(loader)
-        mean_jaccard = running_jaccard / len(loader)
 
         # Return model to train mode
         self.model.train()
@@ -354,7 +526,6 @@ class UNetTrainer:
         return {
             "loss": mean_loss,
             "accuracy": mean_accuracy,
-            "jaccard": mean_jaccard,
         }
 
     def run(self):
@@ -367,10 +538,12 @@ class UNetTrainer:
 
         best_loss = 9999.
         for epoch in range(self.num_epochs):
-            self.train_fn(train_loader, epoch)
+            #self.train_fn(train_loader, epoch)
 
             # Check accuracy
-            results = self.validate_one_batch(val_loader)
+            #results = self.validate_one_batch(val_loader)
+            results = self.validate_fn(val_loader)
+            return
 
             print("Epoch {} Validation - Loss: {:.2f}, Acc: {:.2%}".format(
                 epoch+1,
@@ -387,11 +560,12 @@ class UNetTrainer:
                     "state_dict": self.model.state_dict(),
                     "optimizer": self.optimizer.state_dict(),
                 }
-                save_checkpoint(
-                    checkpoint,
-                    filename=join(CHECKPOINT_DIR,
-                                  f"unet1.0-coco-epoch{epoch}.pth.tar")
-                )
+                if not FLAGS.debug:
+                    save_checkpoint(
+                        checkpoint,
+                        filename=join(CHECKPOINT_DIR,
+                                      f"unet1.0-coco-epoch{epoch}.pth.tar")
+                    )
 
         # Evaluate model on entire validation set
         results = self.validate_fn(val_loader)
@@ -440,10 +614,17 @@ if __name__ == "__main__":
         type=bool,
         help="Whether to perform training or inference on validation"
     )
+    parser.add_argument(
+        "--debug",
+        default=False,
+        type=bool,
+        help="When true, does not save checkpoints"
+    )
+
     FLAGS, _ = parser.parse_known_args()
 
-    if FLAGS.eval and FLAGS.checkpoint == "":
-        raise ValueError("Must specify a checkpoint file (.pth.tar) for eval")
+    if FLAGS.freeze and FLAGS.checkpoint == "":
+        raise ValueError("Must specify a checkpoint file (.pth.tar) for freeze")
 
     trainer = UNetTrainer(
         image_size=IMAGE_SIZE,

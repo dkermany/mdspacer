@@ -32,6 +32,7 @@ torchinfo = "*"
 seaborn = "*"
 pytest = "*"
 typing-extensions = "*"
+pandas = "*"
 
 [dev-packages]
 
