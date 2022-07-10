@@ -12,7 +12,6 @@ name = "downloadpytorch"
 ipykernel = "*"
 numpy = "*"
 matplotlib = "*"
-torchvision = "*"
 torchaudio = "*"
 oiffile = "*"
 opencv-python = "*"
@@ -33,6 +32,7 @@ seaborn = "*"
 pytest = "*"
 typing-extensions = "*"
 pandas = "*"
+torchvision = "*"
 
 [dev-packages]
 

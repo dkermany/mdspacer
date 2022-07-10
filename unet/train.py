@@ -1,4 +1,4 @@
-import sys
+import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -8,15 +8,20 @@ import argparse
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
-from datetime import datetime
-from torch.utils.data.dataloader import DataLoader
+import numpy as np
+import skimage
+import cv2
+from torch import Tensor
+from torch.utils.data.dataloader import Dataset, DataLoader
 from torchinfo import summary
 from albumentations.pytorch import ToTensorV2
-from os.path import abspath, join, dirname, normpath
 from tqdm import tqdm
+from datetime import datetime
 from unet.model import UNET
-from unet.dataset import COCODataset
+from unet.dataset import COCODataset, InferenceDataset
+from unet.metrics import UNetMetrics
 from tools.utils import create_directory
+from tools.checks import _check_save_labels_as_rgb_input
 
 # Hyperparameters
 LEARNING_RATE = 5e-4
@@ -24,188 +29,14 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 PIN_MEMORY = True if torch.cuda.is_available() else False
 BATCH_SIZE = 100
 NUM_CLASSES = 80 + 1 # Background class
-NUM_EPOCHS = 80
-NUM_WORKERS = 4
+NUM_EPOCHS = 5
+NUM_WORKERS = 0 * max(1, torch.cuda.device_count())
 IMAGE_SIZE = 256
 CHECKPOINT_DIR = "/home/dkermany/BoneSegmentation/checkpoints/{}".format(
     datetime.today().strftime("%m%d%Y")
 )
 
-class UNetMetrics:
-    """
-    Class used to track, compute, and manage metrics throughout UNet training
-    and validation
-
-    Arguments:
-        - num_classes (int): number of classes
-    """
-    def __init__(self, num_classes: int):
-        self.num_classes = num_classes
-        self._train = True
-
-        # parameters to be passed to torchmetric classes
-        params = {
-            "num_classes": self.num_classes,
-            "ignore_index": 0,
-            "mdmc_average": "global",
-            "average": "micro",
-        }
-
-        # holder for torchmetric instances
-        self.metrics: dict[str, dict[str, object]] = {
-            stage: {
-                "acc": torchmetrics.Accuracy(**params).to(device=DEVICE),
-                "dice": torchmetrics.Dice(**params).to(device=DEVICE),
-              # "iou": torchmetrics.JaccardIndex(**params).to(device=DEVICE),
-            } for stage in ["train", "val"]
-        }
-
-        self.plots: dict[str, dict[str, list]] = {
-            stage: {
-                "step": [],
-                "loss": [],
-                "acc": [],
-                "dice": [],
-            } for stage in ["train", "val"]
-        }
-
-    def train(self):
-        """
-        Puts instance into "train" mode and updates the training metrics and plot
-        """
-        self._train = True
-
-    def eval(self):
-        """
-        Puts instance into "eval" mode and updates the validation metrics and plot
-        """
-        self._train = False
-
-    def update(self, step: int, loss: float, preds: Tensor, targets: Tensor):
-        """
-        Update metrics with new batch of data
-
-        Arguments:
-            - step (int): batch index corresponding with the provided data
-            - loss (float): mean batch cross-entropy loss
-            - preds (torch.Tensor): predicted labels with shape (N, H, W)
-            - targets (torch.Tensor): targets with shape (N, H, W)
-        """
-        stage = "train" if self._train else "val"
-
-        acc = self.metrics[stage]["acc"](preds, targets)
-        dice = self.metrics[stage]["dice"](preds, targets)
-
-        self.plots[stage]["step"].append(step)
-        self.plots[stage]["loss"].append(loss)
-        self.plots[stage]["acc"].append(acc)
-        self.plots[stage]["dice"].append(dice)
-
-    def compute(self) -> dict[str, dict[str, float]]:
-        """
-        Returns dictionary containing final average metrics
-        """
-        result = {}
-        for stage, m in self.metrics.items():
-            for metric_name, metric in m.items():
-                result[stage] = {
-                    metric_name: metric.compute()
-                }
-        return result
-
-    def _to_dataframe(self) -> pd.DataFrame:
-        """
-        Rearrange metric data into "long-form" pandas dataframe
-        https://seaborn.pydata.org/tutorial/data_structure.html
-        """
-        df_list = []
-        for stage_name, stage in self.plots.items():
-            for metric_name, values in stage.items():
-                # Exclude batch number from metrics
-                if metric_name != "batch":
-                    stage_col = [alt_names[stage_name]] * len(values)
-                    metric_col = [alt_names[metric_name]] * len(values)
-
-                    # Concatenate rows into df_list
-                    df_list += list(zip(
-                        self.plots[stage_name]["batch"],
-                        stage_col,
-                        metric_col,
-                        values
-                    ))
-
-        # Generate dataframe
-        df = pd.DataFrame(df_list, columns=[
-            "Batch",
-            "Stage",
-            "Metrics",
-            "Value",
-        ])
-        return df
-
-    def plot_graphs(self, output_dir: str):
-        """
-        Plots training and validation curves using seaborn and saves the images
-        to the "output" path
-
-        Arguments:
-            - output_dir (str): path to directory in which plot will be saved
-        """
-        # Key to better formatted strings for plot
-        alt_names = {
-            "loss": "Loss",
-            "acc": "Accuracy",
-            "dice": "Dice Score",
-            "train": "Training",
-            "val": "Validation",
-        }
-
-        # Format data into "long-form" dataframe for seaborn
-        df = self.to_dataframe()
-
-        # Set seaborn image size and font scaling
-        sns.set(
-            rc={"figure.figsize": (16, 9)},
-            font_scale=1.5,
-        )
-
-        # Generate seaborn lineplot
-        # Colors different based on metric
-        # Style (solid v. dashed) based on training or validation
-        # Dashes specified with list of tuples: (segment, gap)
-        lplot = sns.lineplot(
-            x="Batch",
-            y="Value",
-            hue="Metrics",
-            style="Stage",
-            data=df,
-            dashes=[(1,0),(6,3)],
-        )
-
-        # Remove y-axis label
-        lplot.set(ylabel=None)
-
-        # Set plot title
-        plt.title("Training Loss and Accuracy Curves")
-
-        # Move legend to outside upper-right corner of image
-        plt.legend(bbox_to_anchor=(1.02, 1), loc="upper left", borderaxespad=0)
-
-        # Save image to disk
-        lplot.figure.savefig(join(output_dir, "training_curves.png"))
-
-    def write_to_file(self, filename: str):
-        """
-        Writes data to csv in "long form"
-
-        Arguments:
-            - filename (str): path to .csv file to be saved
-        """
-        df = self._to_dataframe()
-        df.to_csv(filename, mode="w", index=False)
-
-
-class UNetTrainer:
+class UNetRunner:
     """
     Performs training and transfer learning using UNet
 
@@ -216,7 +47,7 @@ class UNetTrainer:
 
 
     Usage
-        > trainer = UNetTrainer(**args)
+        > trainer = UNetRunner(**args)
         > trainer.run()
 
     Arguments:
@@ -231,6 +62,8 @@ class UNetTrainer:
     """
     def __init__(
         self,
+        image_path: str,
+        mask_path: str,
         image_size: int,
         num_classes: int,
         batch_size: int = 1,
@@ -241,6 +74,8 @@ class UNetTrainer:
         num_workers: int = 0,
         pin_memory: bool = False,
     ):
+        self.image_path = os.path.normpath(image_path)
+        self.mask_path = os.path.normpath(mask_path)
         self.image_size = image_size
         self.num_classes = num_classes
         self.batch_size = batch_size
@@ -251,15 +86,24 @@ class UNetTrainer:
         self.num_workers = num_workers
         self.pin_memory = pin_memory
 
+        self.step = 0
+        self.best_val_loss = 9999.
+
         # Initialize UNet model
         self.model = UNET(in_channels=3, out_channels=self.num_classes)
 
         # Initialize loss function
-        # TODO: Add class_weights after implementing
-        self.loss_fn = nn.CrossEntropyLoss()
+        # TODO: Add class_weights
+        if self.num_classes == 2:
+            self.loss_fn = nn.BCEWithLogitsLoss()
+        if self.num_classes > 2:
+            self.loss_fn = nn.CrossEntropyLoss()
+        else:
+            raise ValueError(f"Class number must be at least 2 or greater.\
+                             Received: ({self.num_classes})")
 
         # Initialize optimizer
-        # passing only those paramters that explicitly require grad
+        # passing only those parameters that explicitly require grad
         self.optimizer = optim.Adam(
             filter(lambda p: p.requires_grad, self.model.parameters()),
             lr=self.learning_rate,
@@ -280,7 +124,7 @@ class UNetTrainer:
         create_directory(CHECKPOINT_DIR)
 
         # Create UNetMetrics instance
-        self.metrics = UNetMetrics(self.num_classes)
+        self.metrics = UNetMetrics(self.num_classes, device=DEVICE)
 
     def load_checkpoint(self) -> None:
         """
@@ -296,6 +140,12 @@ class UNetTrainer:
 
         # loads checkpoint into model and optimizer using state dicts
         checkpoint = torch.load(checkpoint_path)
+
+        # Don't load weights for final_layer since we will be retraining this
+        #if freeze:
+        #    checkpoint_state_dict = for key in checkpoint["state_dict"]
+
+        print(checkpoint["state_dict"])
         self.model.load_state_dict(checkpoint["state_dict"])
         self.optimizer.load_state_dict(checkpoint["optimizer"])
 
@@ -348,18 +198,62 @@ class UNetTrainer:
                 ToTensorV2()
             ]
         )
-        return {"train": train_transform, "val": val_transform}
+        return {
+            "train": train_transform,
+            "val": val_transform,
+            "inference": val_transform, # use val_transform for inference
+        }
+
+    def get_inference_loader(
+        self,
+        image_ext: str,
+        transform: A.Compose
+    ) -> tuple[Dataset, DataLoader[object]]:
+        """
+        Loads dataset and dataloaders for inference image set. Unlike training
+        dataloaders, inference dataloaders do not load or return a mask array.
+        Additionally inference dataloaders do not assume subdirectories, such
+        as "train" or "val", but assume that inference images are found
+        immediately in the provided directory path
+
+        Arguments:
+            - transform (A.Compose): albumentations transform to perform on
+                                     inference set. Typically limited to
+                                     resizing and normalization for inference
+                                     and evaluation datasets
+
+        Returns:
+            - tuple[Dataset, DataLoader]
+                - Dataset: PyTorch Dataset of inference images
+                - DataLoader[object]: PyTorch DataLoader containing images in
+                                      provided path
+        """
+        inference_ds = InferenceDataset(
+            self.image_path,
+            image_ext,
+            transform=transform
+        )
+        inference_loader = DataLoader(
+            inference_ds,
+            batch_size=self.batch_size,
+            shuffle=False,
+            num_workers=self.num_workers,
+            pin_memory=self.pin_memory,
+        )
+        return inference_ds, inference_loader
 
     def get_coco_loaders(
         self,
-        transforms: dict[str, A.Compose]
+        transforms: dict[str, A.Compose],
+        image_ext: str = "jpg",
+        mask_ext: str = "png",
     ) -> tuple[DataLoader[object]]:
 
         train_ds = COCODataset(
-            join(FLAGS.images, "train2017"),
-            join(FLAGS.masks, "train2017"),
-            image_ext="jpg",
-            mask_ext="png",
+            os.path.join(self.image_path, "train2017"),
+            os.path.join(self.mask_path, "train2017"),
+            image_ext=image_ext,
+            mask_ext=mask_ext,
             transform=transforms["train"]
         )
         train_loader = DataLoader(
@@ -371,10 +265,10 @@ class UNetTrainer:
         )
 
         val_ds = COCODataset(
-            join(FLAGS.images, "val2017"),
-            join(FLAGS.masks, "val2017"),
-            image_ext="jpg",
-            mask_ext="png",
+            os.path.join(self.image_path, "val2017"),
+            os.path.join(self.mask_path, "val2017"),
+            image_ext=image_ext,
+            mask_ext=mask_ext,
             transform=transforms["val"]
         )
         val_loader = DataLoader(
@@ -400,192 +294,215 @@ class UNetTrainer:
         )
         return one_hot.permute(0,3,1,2)
 
-    def train_fn(
+    def inference(self, inference_ext: str):
+        """
+        Runs inference on InferenceDataset
+        """
+        self.model.eval()
+
+        # Load transforms
+        transforms = self.get_transforms()
+
+        # Get Loaders
+        inference_ds, inference_loader = self.get_inference_loader(
+            inference_ext,
+            transform=transforms["inference"],
+        )
+
+        # Loop over inference DataLoader
+        for batch_idx, (data, filenames) in enumerate(tqdm(inference_loader)):
+            data.float().to(device=DEVICE)
+
+            # Enables automatic casting between F16 & F32
+            with torch.cuda.amp.autocast():
+                # Disable gradient calculations
+                with torch.no_grad():
+                    # forward
+                    logits = self.model(data)
+
+            predictions = torch.argmax(logits, dim=1).detach().cpu().numpy()
+            self._save_labels_as_rgb(predictions, filenames)
+
+        self.model.train()
+
+    def _save_labels_as_rgb(self, labels: np.ndarray, filenames: str):
+        """
+        Expects label as a batch of numpy arrays in shape (N, size, size),
+        where N is the batch size. Creates a folder at the same directory level
+        as self.image_path named "{self.image_path}_predictions where labels are
+        saved"
+        """
+        _check_save_labels_as_rgb_input(labels)
+
+        # Set output directory
+        output_dir = os.path.join(
+            os.path.dirname(self.image_path),
+            f"{os.path.basename(self.image_path)}_predictions",
+        )
+        create_directory(output_dir)
+
+        # Initialize color palette with self.num_classes different colors
+        palette = sns.color_palette("Set1", self.num_classes)
+
+        # using builtin list() function to only convert the outer-most
+        # dimension to a list, where as the np.ndarray.tolist() function
+        # recursively converts all np.ndarrays into builtin lists
+        # https://numpy.org/doc/stable/reference/generated/numpy.ndarray.tolist.html
+        for label, filename in zip(list(labels), filenames):
+            rgb_label = skimage.color.label2rgb(
+                label,
+                bg_label=0,
+                colors=palette,
+            )
+
+            # Scale predictions from range (0, 1) to (0, 255)
+            rgb_label = (rgb_label * 255).astype("uint8")
+
+            # Convert from RGB formatting to BGR to use cv2 functions
+            bgr_label = cv2.cvtColor(rgb_label, cv2.COLOR_RGB2BGR)
+
+            # Save label
+            output_filename = os.path.join(output_dir, filename + ".png")
+            cv2.imwrite(output_filename, bgr_label)
+
+    def _run_epoch(
         self,
         loader: DataLoader[object],
         epoch: int,
-    ):
+        train: bool,
+    ) -> dict[str, float]:
+        """
+        Performs one epoch over provided `loader` (DataLoader)
+
+        Arguments:
+            - loader (DataLoader): training or validation pytorch dataloader
+            - epoch (int): current epoch number
+            - train (bool): Whether or not to enable gradients
+        """
+        if train:
+            self.model.train()
+            self.metrics.train()
+        else:
+            self.model.eval()
+            self.metrics.eval()
+
+        # Running loss variable
+        epoch_loss = 0.0
+
         loop = tqdm(loader)
         for i, (data, targets) in enumerate(loop):
+            # Get batch data and load to GPU
             data = data.float().to(device=DEVICE)
             targets = self.one_hot_encoding(targets).float().to(device=DEVICE)
 
             # forward
             with torch.cuda.amp.autocast():
-                logits = self.model(data)
-                loss = self.loss_fn(logits, targets)
-
-            # backward
-            self.optimizer.zero_grad()
-            self.scaler.scale(loss).backward()
-            self.scaler.step(self.optimizer)
-            self.scaler.update()
-
-            targets = torch.argmax(targets, axis=1).int()
-            predictions = torch.argmax(logits, dim=1)
-
-            # Pixel-wise accuracy
-            accuracy = (predictions == targets).sum() / torch.numel(targets)
-
-            # Add metrics
-            for _, metric in self.metrics["train"].items():
-                result = metric(predictions, targets)
-
-            # update tqdm loop
-            loop.set_description("Epoch: {}/{} - Loss: {:.2f}, Acc: {:.2%}".format(
-                epoch+1,
-                self.num_epochs,
-                loss.item(),
-                accuracy.item()
-            ))
-
-    def validate_one_batch(self, loader: DataLoader[object]) -> dict:
-        """
-        Performs inference only on the first batch of the validation set and
-        calculates loss and the mean jaccard index. Meant to be used after
-        each epoch to track the model's performance over the epochs
-        """
-        # Set model into evaluation mode
-        self.model.eval()
-        with torch.no_grad():
-
-            # Get only the same first batch of images
-            # Make sure loader shuffle is set to False to ensure geting the
-            # same batch each time
-            data, targets = next(iter(loader))
-
-            data = data.float().to(device=DEVICE)
-            targets = self.one_hot_encoding(targets).float().to(device=DEVICE)
-            with torch.cuda.amp.autocast():
-                logits = torch.softmax(self.model(data), dim=1)
-                loss = self.loss_fn(logits, targets)
-
-            # Change tensor shape 
-            # (batch, n_classes, size, size) -> (batch, size, size)
-            targets = torch.argmax(targets, axis=1).int()
-            predictions = torch.argmax(logits, dim=1)
-
-            # Pixel-wise accuracy
-            accuracy = (predictions == targets).sum() / torch.numel(targets)
-
-            # Add metrics
-            print(f"""Metric Calculations - input sizes - pred:
-                  {predictions.shape}, targets: {targets.shape}""")
-            for name, metric in self.metrics["val"].items():
-                result = metric(predictions, targets)
-                print("val", name, result)
-
-        # Return model to train mode
-        self.model.train()
-
-        return {
-            "loss": loss.item(),
-            "accuracy": accuracy.item(),
-        }
-
-    def validate_fn(self, loader: DataLoader[object]) -> dict:
-        """
-        Performs inference only on the entire validation set and
-        calculates loss and the mean jaccard index. Meant to be used after
-        model training is complete
-        """
-        # Set model into evaluation mode
-        self.model.eval()
-        with torch.no_grad():
-            running_loss = 0.
-            running_accuracy = 0.
-            loop = tqdm(loader)
-            for data, targets in loop:
-                data = data.float().to(device=DEVICE)
-                targets = self.one_hot_encoding(targets).float().to(device=DEVICE)
-                with torch.cuda.amp.autocast():
-                    logits = torch.softmax(self.model(data), dim=1)
+                with torch.set_grad_enabled(train):
+                    logits = self.model(data)
                     loss = self.loss_fn(logits, targets)
 
-                # Change tensor shape 
-                # (batch, n_classes, size, size) -> (batch, size, size)
-                targets = torch.argmax(targets, axis=1).int()
-                predictions = torch.argmax(logits, dim=1)
+            # backward
+            if train:
+                self.optimizer.zero_grad()
+                self.scaler.scale(loss).backward()
+                self.scaler.step(self.optimizer)
+                self.scaler.update()
 
-                # Add metrics
-                print(f"""Metric Calculations - input sizes - pred:
-                      {predictions.shape}, targets: {targets.shape}""")
-                for name, metric in self.metrics["val"].items():
-                    result = metric(predictions, targets).item()
-                    print("val", name, result)
+            targets = torch.argmax(targets, axis=1).int()
+            predictions = torch.argmax(logits, dim=1)
 
-                running_loss += loss.item()
-                running_accuracy += accuracy.item()
+            # Update metrics
+            r = self.metrics.update_metrics(predictions, targets)
+            acc, dice = r["acc"], r["dice"]
 
-        mean_loss = running_loss / len(loader)
-        mean_accuracy = running_accuracy / len(loader)
+            # Updating running loss
+            epoch_loss += loss.item()
 
-        # Return model to train mode
-        self.model.train()
+            # Training plot is updated every batch and the step is incremented
+            # for each training batch
+            if train:
+                self.metrics.update_plot(self.step, loss.item(), acc, dice)
 
-        return {
-            "loss": mean_loss,
-            "accuracy": mean_accuracy,
-        }
+                # Increment plot step (x-axis)
+                self.step += 1
 
-    def run(self):
+            # update tqdm loop
+            stage = "Train" if train else "Validation"
+            desc = (
+                f"{stage} Epoch: {epoch+1}/{self.num_epochs} - Loss: "
+                f"{loss.item():.4f}, Acc: {acc:.4f}, Dice: {dice:.4f}"
+            )
+            loop.set_description(desc)
+
+        # Calculate average metrics
+        results = self.metrics.compute()
+
+        # Validation plot is updated only once every training epoch and the
+        # step is NOT incremented
+        if not train:
+            self.metrics.update_plot(
+                self.step,
+                epoch_loss,
+                results["acc"],
+                results["dice"],
+            )
+
+        # Average loss over epoch and add it to results dict
+        epoch_loss /= len(loader)
+        results["loss"] = epoch_loss
+
+        return results
+
+    def run_coco(self):
+        """
+        Runs training and validation. Calculates validation scores every epoch.
+        Training metrics are not averages together until the end of training.
+        """
         # Load transforms
         transforms = self.get_transforms()
 
-        # Load Datasets
+        # Get Loaders
         train_loader, val_loader = self.get_coco_loaders(transforms)
 
-
-        best_loss = 9999.
         for epoch in range(self.num_epochs):
-            #self.train_fn(train_loader, epoch)
+            # Training epoch
+            train_results = self._run_epoch(train_loader, epoch, train=True)
+            val_results = self._run_epoch(val_loader, epoch, train=False)
 
-            # Check accuracy
-            #results = self.validate_one_batch(val_loader)
-            results = self.validate_fn(val_loader)
-            return
-
-            print("Epoch {} Validation - Loss: {:.2f}, Acc: {:.2%}".format(
-                epoch+1,
-                results["loss"],
-                results["accuracy"],
-            ))
+            print("-" * 75)
+            print(f"Epoch {epoch+1} Average Metrics")
+            print(f"""Train\n\tLoss: {train_results["loss"]:.4f},\
+                  \n\tAcc: {train_results["acc"]:.4f},\
+                  \n\tDice: {train_results["dice"]:.4f}""")
+            print(f"""Validation\n\tLoss: {val_results["loss"]:.4f},\
+                  \n\tAcc: {val_results["acc"]:.4f},\
+                  \n\tDice: {val_results["dice"]:.4f}""")
+            print("-" * 75)
 
             # If this is the best performance so far, save checkpoint
-            if results["loss"] < best_loss:
-                best_loss = results["loss"]
+            if val_results["loss"] < self.best_val_loss:
+                self.best_val_loss = val_results["loss"]
 
                 # Save model
                 checkpoint = {
                     "state_dict": self.model.state_dict(),
                     "optimizer": self.optimizer.state_dict(),
                 }
-                if not FLAGS.debug:
-                    save_checkpoint(
-                        checkpoint,
-                        filename=join(CHECKPOINT_DIR,
-                                      f"unet1.0-coco-epoch{epoch}.pth.tar")
-                    )
+                self.save_checkpoint(
+                    checkpoint,
+                    filename=os.path.join(CHECKPOINT_DIR,
+                                  f"unet1.0-coco-epoch{epoch+1}.pth.tar")
+                )
 
-        # Evaluate model on entire validation set
-        results = self.validate_fn(val_loader)
-        print("Final Validation - Loss: {}, mIoU: {}, Acc: {}".format(
-                epoch,
-                results["loss"],
-                results["jaccard"],
-                results["accuracy"],
-        ))
+            # Save metrics to CSV file. Runs after every epoch to update the file
+            # as training progresses, rather than waiting until the end. This
+            # ensures data is not loss in the case of script interruption
+            self.metrics.write_to_file(CHECKPOINT_DIR)
 
-        # Save metrics to files
-        print("Saving metrics to files...")
-        pd.DataFrame(
-            self.metrics["loss"], 
-            columns=["Batch Number", "Loss", "Mode"],
-        ).to_csv(join(CHECKPOINT_DIR, "loss.csv"))
-        pd.DataFrame(
-            self.metrics["acc"], 
-            columns=["Batch Number", "Accuracy", "Mode"],
-        ).to_csv(join(CHECKPOINT_DIR, "accuracy.csv"))
+        # Save training and validation plot as image (.PNG)
+        self.metrics.save_plots(CHECKPOINT_DIR)
+
+
 
 
 if __name__ == "__main__":
@@ -598,9 +515,10 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--masks",
-        required=True,
+        default="",
         type=str,
-        help="Path to train/val/test masks directory"
+        help="Path to train/val/test masks directory. If empty, runs inference\
+              on images"
     )
     parser.add_argument(
         "--checkpoint",
@@ -615,10 +533,10 @@ if __name__ == "__main__":
         help="Whether to perform training or inference on validation"
     )
     parser.add_argument(
-        "--debug",
-        default=False,
-        type=bool,
-        help="When true, does not save checkpoints"
+        "--inference_ext",
+        default="jpg",
+        type=str,
+        help="Image extension for inference files"
     )
 
     FLAGS, _ = parser.parse_known_args()
@@ -626,7 +544,12 @@ if __name__ == "__main__":
     if FLAGS.freeze and FLAGS.checkpoint == "":
         raise ValueError("Must specify a checkpoint file (.pth.tar) for freeze")
 
-    trainer = UNetTrainer(
+    if not os.path.exists(FLAGS.images):
+        raise ValueError("Invalid path given for --images")
+
+    runner = UNetRunner(
+        image_path=FLAGS.images,
+        mask_path=FLAGS.masks,
         image_size=IMAGE_SIZE,
         num_classes=NUM_CLASSES,
         batch_size=BATCH_SIZE,
@@ -637,6 +560,10 @@ if __name__ == "__main__":
         pin_memory=PIN_MEMORY,
     )
 
-
-    trainer.run()
+    if FLAGS.masks == "":
+        print("==> Running UNet in INFERENCE mode")
+        runner.inference(FLAGS.inference_ext)
+    else:
+        print("==> Running UNet in TRAINING mode on the COCO Dataset")
+        runner.run_coco()
 
