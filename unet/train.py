@@ -20,7 +20,9 @@ from datetime import datetime
 from unet.model import UNET
 from unet.dataset import COCODataset, InferenceDataset
 from unet.metrics import UNetMetrics
-from tools.utils import create_directory
+from tools.utils import (create_directory, get_COCO_transforms,
+                         get_inference_loader, get_COCO_loaders,
+                         get_CoNSeP_loaders)
 from tools.checks import _check_save_labels_as_rgb_input
 
 # Hyperparameters
@@ -164,7 +166,6 @@ class UNetRunner:
                 for k, v in checkpoint[i].items()
             }
 
-        print(checkpoint["state_dict"])
         self.model.load_state_dict(checkpoint["state_dict"])
         self.optimizer.load_state_dict(checkpoint["optimizer"])
 
@@ -173,157 +174,6 @@ class UNetRunner:
         print(f"=> Saving checkpoint: {filename}")
         torch.save(state, filename)
 
-    def get_transforms(self) -> dict[str, A.Compose]:
-        train_transform = A.Compose(
-            [
-                A.Resize(
-                    height=int(self.image_size*1.13),
-                    width=int(self.image_size*1.13),
-                ),
-                A.RandomCrop(height=self.image_size, width=self.image_size),
-                A.Rotate(limit=90, p=0.9),
-                A.HorizontalFlip(p=0.5),
-                A.VerticalFlip(p=0.1),
-                A.CLAHE(clip_limit=4.0, p=0.35),
-                A.ColorJitter(p=0.15),
-                A.GaussNoise(p=0.15),
-                A.Normalize(
-                    mean=[0.4690, 0.4456, 0.4062],
-                    std=[0.2752, 0.2701, 0.2847],
-                    max_pixel_value=255.0
-                ),
-                ToTensorV2()
-            ]
-        )
-        val_transform = A.Compose(
-            [
-                A.Resize(height=self.image_size, width=self.image_size),
-                A.Normalize(
-                    mean=[0.4690, 0.4456, 0.4062],
-                    std=[0.2752, 0.2701, 0.2847],
-                    max_pixel_value=255.0
-                ),
-                ToTensorV2()
-            ]
-        )
-        return {
-            "train": train_transform,
-            "val": val_transform,
-            "inference": val_transform, # use val_transform for inference
-        }
-
-    def get_inference_loader(
-        self,
-        image_ext: str,
-        transform: A.Compose
-    ) -> tuple[Dataset, DataLoader[object]]:
-        """
-        Loads dataset and dataloaders for inference image set. Unlike training
-        dataloaders, inference dataloaders do not load or return a mask array.
-        Additionally inference dataloaders do not assume subdirectories, such
-        as "train" or "val", but assume that inference images are found
-        immediately in the provided directory path
-
-        Arguments:
-            - transform (A.Compose): albumentations transform to perform on
-                                     inference set. Typically limited to
-                                     resizing and normalization for inference
-                                     and evaluation datasets
-
-        Returns:
-            - tuple[Dataset, DataLoader]
-                - Dataset: PyTorch Dataset of inference images
-                - DataLoader[object]: PyTorch DataLoader containing images in
-                                      provided path
-        """
-        inference_ds = InferenceDataset(
-            self.image_path,
-            image_ext,
-            transform=transform
-        )
-        inference_loader = DataLoader(
-            inference_ds,
-            batch_size=self.batch_size,
-            shuffle=False,
-            num_workers=self.num_workers,
-            pin_memory=self.pin_memory,
-        )
-        return inference_ds, inference_loader
-
-    def get_coco_loaders(
-        self,
-        transforms: dict[str, A.Compose],
-        image_ext: str = "png",
-        mask_ext: str = "png",
-    ) -> tuple[DataLoader[object]]:
-        train_ds = CoNSePDataset(
-            os.path.join(self.image_path, "train2017"),
-            os.path.join(self.mask_path, "train2017"),
-            image_ext=image_ext,
-            mask_ext=mask_ext,
-            transform=transforms["train"]
-        )
-        train_loader = DataLoader(
-            train_ds,
-            batch_size=self.batch_size,
-            shuffle=True,
-            num_workers=self.num_workers,
-            pin_memory=self.pin_memory,
-        )
-
-        val_ds = CoNSePDataset(
-            os.path.join(self.image_path, "val2017"),
-            os.path.join(self.mask_path, "val2017"),
-            image_ext=image_ext,
-            mask_ext=mask_ext,
-            transform=transforms["val"]
-        )
-        val_loader = DataLoader(
-            val_ds,
-            batch_size=self.batch_size,
-            shuffle=False,
-            num_workers=self.num_workers,
-            pin_memory=self.pin_memory,
-        )
-        return train_loader, val_loader
-
-    def get_coco_loaders(
-        self,
-        transforms: dict[str, A.Compose],
-        image_ext: str = "jpg",
-        mask_ext: str = "png",
-    ) -> tuple[DataLoader[object]]:
-
-        train_ds = COCODataset(
-            os.path.join(self.image_path, "train2017"),
-            os.path.join(self.mask_path, "train2017"),
-            image_ext=image_ext,
-            mask_ext=mask_ext,
-            transform=transforms["train"]
-        )
-        train_loader = DataLoader(
-            train_ds,
-            batch_size=self.batch_size,
-            shuffle=True,
-            num_workers=self.num_workers,
-            pin_memory=self.pin_memory,
-        )
-
-        val_ds = COCODataset(
-            os.path.join(self.image_path, "val2017"),
-            os.path.join(self.mask_path, "val2017"),
-            image_ext=image_ext,
-            mask_ext=mask_ext,
-            transform=transforms["val"]
-        )
-        val_loader = DataLoader(
-            val_ds,
-            batch_size=self.batch_size,
-            shuffle=False,
-            num_workers=self.num_workers,
-            pin_memory=self.pin_memory,
-        )
-        return train_loader, val_loader
 
     def one_hot_encoding(self, label: torch.Tensor) -> torch.Tensor:
         """
@@ -346,11 +196,15 @@ class UNetRunner:
         self.model.eval()
 
         # Load transforms
-        transforms = self.get_transforms()
+        transforms = get_COCO_transforms(self.image_size)
 
         # Get Loaders
-        inference_ds, inference_loader = self.get_inference_loader(
-            inference_ext,
+        inference_ds, inference_loader = get_inference_loader(
+            image_path=self.image_path,
+            image_ext=inference_ext,
+            batch_size=self.batch_size,
+            num_workers=self.num_workers,
+            pin_memory=self.pin_memory,
             transform=transforms["inference"],
         )
 
@@ -508,7 +362,14 @@ class UNetRunner:
         transforms = self.get_transforms()
 
         # Get Loaders
-        train_loader, val_loader = self.get_consep_loaders(transforms)
+        train_loader, val_loader = get_consep_loaders(
+            image_path=self.image_path,
+            mask_path=self.mask_path,
+            batch_size=self.batch_size,
+            num_workers=self.num_workers,
+            pin_memory=self.pin_memory,
+            transforms=transforms,
+        )
 
     def run_coco(self):
         """
@@ -516,10 +377,17 @@ class UNetRunner:
         Training metrics are not averages together until the end of training.
         """
         # Load transforms
-        transforms = self.get_transforms()
+        transforms = get_COCO_transforms(self.image_size)
 
         # Get Loaders
-        train_loader, val_loader = self.get_coco_loaders(transforms)
+        train_loader, val_loader = get_COCO_loaders(
+            image_path=self.image_path,
+            mask_path=self.mask_path,
+            batch_size=self.batch_size,
+            num_workers=self.num_workers,
+            pin_memory=self.pin_memory,
+            transforms=transforms,
+        )
 
         for epoch in range(self.num_epochs):
             # Training epoch
@@ -560,6 +428,42 @@ class UNetRunner:
         self.metrics.save_plots(CHECKPOINT_DIR)
 
 
+def main():
+    # Initialize runner
+    runner = UNetRunner(
+        image_path=FLAGS.images,
+        mask_path=FLAGS.masks,
+        image_size=IMAGE_SIZE,
+        num_classes=NUM_CLASSES,
+        batch_size=BATCH_SIZE,
+        num_epochs=NUM_EPOCHS,
+        learning_rate=LEARNING_RATE,
+        checkpoint_dir=FLAGS.checkpoint,
+        freeze=FLAGS.freeze,
+        num_workers=NUM_WORKERS,
+        pin_memory=PIN_MEMORY,
+    )
+
+    # Run inference
+    if FLAGS.masks == "":
+        print("==> Running UNet in INFERENCE mode")
+        runner.inference(FLAGS.inference_ext)
+        return
+
+    # Run training from scratch
+    if FLAGS.checkpoint != "":
+        print("==> Running UNet in TRAINING mode on the COCO Dataset")
+        runner.run_coco()
+        return
+
+    # Run retraining with new final layer from checkpoint
+    if FLAGS.freeze:
+        print("==> Running UNet in TRAINING mode on the CoNSeP Dataset")
+        runner.run_consep()
+        return
+
+    # Continue training from checkpoint
+    raise NotImplementedError("Need to resolve metrics and plotting issues")
 
 
 if __name__ == "__main__":
@@ -599,6 +503,7 @@ if __name__ == "__main__":
     FLAGS, _ = parser.parse_known_args()
 
     # Check FLAGS
+    err = None
     if FLAGS.freeze and FLAGS.checkpoint == "":
         err = "Must specify a checkpoint file (.pth.tar) for freeze"
     if FLAGS.masks == "" and FLAGS.checkpoint == "":
@@ -608,40 +513,4 @@ if __name__ == "__main__":
     if err:
         raise ValueError(err)
 
-    # Initialize runner
-    runner = UNetRunner(
-        image_path=FLAGS.images,
-        mask_path=FLAGS.masks,
-        image_size=IMAGE_SIZE,
-        num_classes=NUM_CLASSES,
-        batch_size=BATCH_SIZE,
-        num_epochs=NUM_EPOCHS,
-        learning_rate=LEARNING_RATE,
-        checkpoint_dir=FLAGS.checkpoint,
-        freeze=FLAGS.freeze,
-        num_workers=NUM_WORKERS,
-        pin_memory=PIN_MEMORY,
-    )
-
-    # Run inference
-    if FLAGS.masks == "":
-        print("==> Running UNet in INFERENCE mode")
-        runner.inference(FLAGS.inference_ext)
-        return
-
-    # Run training from scratch
-    if FLAGS.checkpoint != "":
-        print("==> Running UNet in TRAINING mode on the COCO Dataset")
-        runner.run_coco()
-        return
-
-    # Run retraining with new final layer from checkpoint
-    if FLAGS.freeze:
-        print("==> Running UNet in TRAINING mode on the CoNSeP Dataset")
-        runner.run_consep()
-        return
-
-    # Continue training from checkpoint
-    raise NotImplementedError("Need to resolve metrics and plotting issues")
-
-
+    main()
