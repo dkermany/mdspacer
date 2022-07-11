@@ -4,6 +4,9 @@ from torch.utils.data import DataLoader
 def _check_COCO_image(image):
     assert image.shape[0] == 3
 
+def _check_COCO_mask(mask):
+    assert mask.shape[0] == 3
+
 def _check_CoNSeP_image(image):
     assert image.shape[0] == 3
 

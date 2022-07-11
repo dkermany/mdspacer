@@ -41,7 +41,7 @@ class UNetRunner:
     Performs training and transfer learning using UNet
 
     Default behavior is to train learnable parameters from scratch,
-    however passing a path to a *.pth.tar checkpoint in the checkpoint_path
+    however passing a path to a *.pth.tar checkpoint in the checkpoint_dir
     parameter will:
         1. Freeze all layers
 
@@ -51,7 +51,7 @@ class UNetRunner:
         > trainer.run()
 
     Arguments:
-        - checkpoint_path (str): path to .pth.tar file containing UNet
+        - checkpoint_dir (str): path to .pth.tar file containing UNet
                                  parameters to reinitialize
         - freeze (bool): If False (default), all learnable parameters are
                          left unfrozen. If True, all weights except for
@@ -126,28 +126,11 @@ class UNetRunner:
         # Create UNetMetrics instance
         self.metrics = UNetMetrics(self.num_classes, device=DEVICE)
 
-    def load_checkpoint(self) -> None:
-        """
-        Sets checkpoint path and specifies if loaded weights will be frozen for
-        retraining or left unfrozen for evaluation or continuation of training
-        """
-        if not self.checkpoint_path.endswith(".pth.tar"):
-            err = f"""Checkpoint {self.checkpoint_path} not valid checkpoint file
-                      type (expected: .pth.tar)"""
-            raise ValueError(err)
-
-        print(f"==> Loading checkpoint: {self.checkpoint_path}")
-
-        # loads checkpoint into model and optimizer using state dicts
-        checkpoint = torch.load(checkpoint_path)
+    def freeze(self):
 
         # Don't load weights for final_layer since we will be retraining this
         #if freeze:
         #    checkpoint_state_dict = for key in checkpoint["state_dict"]
-
-        print(checkpoint["state_dict"])
-        self.model.load_state_dict(checkpoint["state_dict"])
-        self.optimizer.load_state_dict(checkpoint["optimizer"])
 
         # Unfrozen, to continue or evaluate
         if not freeze:
@@ -160,6 +143,31 @@ class UNetRunner:
                     param.requires_grad = True
                 else:
                     param.requires_grad = False
+
+
+    def load_checkpoint(self):
+        """
+        """
+        if not self.checkpoint_dir.endswith(".pth.tar"):
+            err = f"""Checkpoint {self.checkpoint_dir} not valid checkpoint file
+                      type (expected: .pth.tar)"""
+            raise ValueError(err)
+
+        print(f"==> Loading checkpoint: {self.checkpoint_dir}")
+        # loads checkpoint into model and optimizer using state dicts
+        checkpoint = torch.load(self.checkpoint_dir)
+
+        # Convert dataparallel weights
+        for i in ["state_dict", "optimizer"]:
+            checkpoint[i] = {
+                k.removeprefix("module."): v
+                for k, v in checkpoint[i].items()
+            }
+
+        print(checkpoint["state_dict"])
+        self.model.load_state_dict(checkpoint["state_dict"])
+        self.optimizer.load_state_dict(checkpoint["optimizer"])
+
 
     def save_checkpoint(self, state: dict[str, object], filename: str) -> None:
         print(f"=> Saving checkpoint: {filename}")
@@ -241,6 +249,43 @@ class UNetRunner:
             pin_memory=self.pin_memory,
         )
         return inference_ds, inference_loader
+
+    def get_coco_loaders(
+        self,
+        transforms: dict[str, A.Compose],
+        image_ext: str = "png",
+        mask_ext: str = "png",
+    ) -> tuple[DataLoader[object]]:
+        train_ds = CoNSePDataset(
+            os.path.join(self.image_path, "train2017"),
+            os.path.join(self.mask_path, "train2017"),
+            image_ext=image_ext,
+            mask_ext=mask_ext,
+            transform=transforms["train"]
+        )
+        train_loader = DataLoader(
+            train_ds,
+            batch_size=self.batch_size,
+            shuffle=True,
+            num_workers=self.num_workers,
+            pin_memory=self.pin_memory,
+        )
+
+        val_ds = CoNSePDataset(
+            os.path.join(self.image_path, "val2017"),
+            os.path.join(self.mask_path, "val2017"),
+            image_ext=image_ext,
+            mask_ext=mask_ext,
+            transform=transforms["val"]
+        )
+        val_loader = DataLoader(
+            val_ds,
+            batch_size=self.batch_size,
+            shuffle=False,
+            num_workers=self.num_workers,
+            pin_memory=self.pin_memory,
+        )
+        return train_loader, val_loader
 
     def get_coco_loaders(
         self,
@@ -453,6 +498,18 @@ class UNetRunner:
 
         return results
 
+    def run_consep(self):
+        """
+        Runs training and validation on consep. Calculates validation scores every epoch.
+        Training metrics are not averages together until the end of training.
+        Begins from loaded checkpoint
+        """
+        # Load transforms
+        transforms = self.get_transforms()
+
+        # Get Loaders
+        train_loader, val_loader = self.get_consep_loaders(transforms)
+
     def run_coco(self):
         """
         Runs training and validation. Calculates validation scores every epoch.
@@ -541,12 +598,17 @@ if __name__ == "__main__":
 
     FLAGS, _ = parser.parse_known_args()
 
+    # Check FLAGS
     if FLAGS.freeze and FLAGS.checkpoint == "":
-        raise ValueError("Must specify a checkpoint file (.pth.tar) for freeze")
-
+        err = "Must specify a checkpoint file (.pth.tar) for freeze"
+    if FLAGS.masks == "" and FLAGS.checkpoint == "":
+        err = "Must specify a checkpoint file (.pth.tar) for inference"
     if not os.path.exists(FLAGS.images):
-        raise ValueError("Invalid path given for --images")
+        err = "Invalid path given for --images"
+    if err:
+        raise ValueError(err)
 
+    # Initialize runner
     runner = UNetRunner(
         image_path=FLAGS.images,
         mask_path=FLAGS.masks,
@@ -555,15 +617,31 @@ if __name__ == "__main__":
         batch_size=BATCH_SIZE,
         num_epochs=NUM_EPOCHS,
         learning_rate=LEARNING_RATE,
+        checkpoint_dir=FLAGS.checkpoint,
         freeze=FLAGS.freeze,
         num_workers=NUM_WORKERS,
         pin_memory=PIN_MEMORY,
     )
 
+    # Run inference
     if FLAGS.masks == "":
         print("==> Running UNet in INFERENCE mode")
         runner.inference(FLAGS.inference_ext)
-    else:
+        return
+
+    # Run training from scratch
+    if FLAGS.checkpoint != "":
         print("==> Running UNet in TRAINING mode on the COCO Dataset")
         runner.run_coco()
+        return
+
+    # Run retraining with new final layer from checkpoint
+    if FLAGS.freeze:
+        print("==> Running UNet in TRAINING mode on the CoNSeP Dataset")
+        runner.run_consep()
+        return
+
+    # Continue training from checkpoint
+    raise NotImplementedError("Need to resolve metrics and plotting issues")
+
 

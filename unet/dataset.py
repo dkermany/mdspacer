@@ -10,7 +10,7 @@ from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 from glob import glob
 from tools.checks import (_check_COCO_image, _check_CoNSeP_image,
-                          _check_inference_image)
+                          _check_inference_image, _check_COCO_mask)
 
 """
 Masks are assumed to have pixel values corresponding to category/class id
@@ -150,7 +150,7 @@ class TrainDataset(BaseDataset):
             raise ValueError(err)
 
 class CoNSePDataset(TrainDataset):
-    def __getitem__(self, index: int):
+    def __getitem__(self, index: int) -> tuple[Tensor]:
         """
         returns image (torch.Size(3, 256, 256)) and mask (torch.Size(256, 256))
         """
@@ -185,7 +185,7 @@ class CoNSePDataset(TrainDataset):
                 (x['type_map']==7).astype(int))[:, :, None]
         mask = np.concatenate((mask,temp), axis=2)
 
-        mask = mask.float()
+        mask = mask.astype("float32")
         mask[mask >= 1] = 1
 
         if self.transform is not None:
@@ -193,11 +193,12 @@ class CoNSePDataset(TrainDataset):
             image, mask = augmentations["image"], augmentations["mask"]
 
         # convert from channel_last format to channel_first
-        _check_CoNSeP_image(image.permute(2,0,1))
-        return image.permute(2,0,1), mask.permute(2,0,1)
+        _check_CoNSeP_image(image)
+        _check_CoNSeP_image(mask.permute(2,0,1))
+        return image, mask.permute(2,0,1)
 
 class COCODataset(TrainDataset):
-    def __getitem__(self, index: int):
+    def __getitem__(self, index: int) -> tuple[Tensor]:
         """
         returns image (torch.Size(3, 256, 256)) and mask (torch.Size(256, 256))
         """
@@ -219,4 +220,5 @@ class COCODataset(TrainDataset):
             image, mask = augmentations["image"], augmentations["mask"]
 
         _check_COCO_image(image)
+        _check_COCO_image(mask)
         return image, mask
