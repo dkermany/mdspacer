@@ -99,8 +99,12 @@ Install dependencies
 
 <!-- USAGE EXAMPLES -->
 ## Usage
+Run training from scratch
+```sh
+  python unet/train.py --images /path/to/images --masks /path/to/masks
+  ```
+
 TODO
-- Training
 - Evaluation
 - Utils
 <p align="right">(<a href="#top">back to top</a>)</p>
