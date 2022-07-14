@@ -142,7 +142,10 @@ Distributed under the MIT License. See `LICENSE.txt` for more information.
 * Yunjie He
 <p align="right">(<a href="#top">back to top</a>)</p>
 
-
+<!-- Useful Links -->
+## Useful Links
+* <a href="https://tinyurl.com/QuantificationTortuosity">Quantification of Tortuosity (Article)</a>
+<p align="right">(<a href="#top">back to top</a>)</p>
 
 <!-- MARKDOWN LINKS & IMAGES -->
 <!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
