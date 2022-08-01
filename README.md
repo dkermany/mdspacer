@@ -61,23 +61,23 @@ TODO
 ## Roadmap
 - [x] Reproduce previous work in matlab
 - [x] Manually labeled 2D samples
-- [ ] Segmentation Datasets Loaded
+- [x] Segmentation Datasets Loaded
   - [x] 2D Bone Microscope slices (JPG/PNG)
   - [x] [COCO](https://cocodataset.org/) Data Preprocessing
-  - [ ] [CoNSeP](https://warwick.ac.uk/fac/cross_fac/tia/data/hovernet/) Data Preprocessing
+  - [x] [CoNSeP](https://warwick.ac.uk/fac/cross_fac/tia/data/hovernet/) Data Preprocessing
   - [ ] 3D Bone Microscope slices (OIF/OIB/TIFF)
 - [ ] Segmentation
-  - [ ] Reproduce previous work
+  - [x] Reproduce previous work
   - [ ] Write evaluation functions
     - [ ] Class-weighted pixelwise accuracy
-    - [ ] Class-weighted jaccard score
+    - [x] Class-weighted jaccard score
     - [ ] Class-weighted dice score
-  - [ ] Write UNet Base Model
-    - [ ] Train weights on COCO Dataset
-    - [ ] Continue training weights on CoNSeP Dataset
-    - [ ] Train on half of bone images
-  - [ ] Compare with previous work
-  - [ ] Try with ImageNet pretrained encoder-decoders
+  - [x] Write UNet Base Model
+    - [x] Train weights on COCO Dataset
+    - [x] Continue training weights on CoNSeP Dataset
+    - [x] Train on half of bone images
+  - [x] Compare with previous work
+  - [x] Try with ImageNet pretrained encoder-decoders
 - [ ] Classification Datasets Loaded
   - [ ] Binary `affected` vs `unaffected` vessels based on tumor cell vicinity
     - [ ] Vessel instance segmentation and bounding box patch generation
@@ -99,8 +99,12 @@ Install dependencies
 
 <!-- USAGE EXAMPLES -->
 ## Usage
+Run training from scratch
+```sh
+  python unet/train.py --images /path/to/images --masks /path/to/masks
+  ```
+
 TODO
-- Training
 - Evaluation
 - Utils
 <p align="right">(<a href="#top">back to top</a>)</p>
@@ -138,7 +142,10 @@ Distributed under the MIT License. See `LICENSE.txt` for more information.
 * Yunjie He
 <p align="right">(<a href="#top">back to top</a>)</p>
 
-
+<!-- Useful Links -->
+## Useful Links
+* <a href="https://tinyurl.com/QuantificationTortuosity">Quantification of Tortuosity (Article)</a>
+<p align="right">(<a href="#top">back to top</a>)</p>
 
 <!-- MARKDOWN LINKS & IMAGES -->
 <!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
