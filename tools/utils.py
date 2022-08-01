@@ -46,9 +46,58 @@ def dice_coef_multiclass(y_true, y_pred, n_classes=80):
 def pixelwise_accuracy(y, y_pred):
     return (y_pred == y).sum() / y.shape[1]
 
-
+def get_CoNSeP_transforms(image_size: int) -> dict[str, A.Compose]:
+    train_transform = A.Compose(
+        [
+            A.RandomCrop(height=image_size, width=image_size),
+            #A.Rotate(limit=90, p=0.9),
+            A.HorizontalFlip(p=0.5),
+            A.VerticalFlip(p=0.5),
+            A.CLAHE(clip_limit=4.0, p=0.35),
+            #A.ColorJitter(p=0.05),
+            #A.GaussNoise(p=0.15),
+            A.Normalize(
+                mean=[0.485, 0.456, 0.406], # ImageNet normalization
+                std=[0.229, 0.224, 0.225],
+                # mean=[0.4690, 0.4456, 0.4062], # COCO normalization
+                # std=[0.2752, 0.2701, 0.2847],
+                # max_pixel_value=255.0
+            ),
+            ToTensorV2()
+        ]
+    )
+    val_transform = A.Compose(
+        [
+            A.Resize(height=1024, width=1024),
+            A.Normalize(
+                mean=[0.485, 0.456, 0.406], # ImageNet normalization
+                std=[0.229, 0.224, 0.225],
+                # mean=[0.4690, 0.4456, 0.4062],
+                # std=[0.2752, 0.2701, 0.2847],
+                # max_pixel_value=255.0
+            ),
+            ToTensorV2()
+        ]
+    )
+    return {
+        "train": train_transform,
+        "val": val_transform,
+        "inference": val_transform, # use val_transform for inference
+    }
 
 def get_COCO_transforms(image_size: int) -> dict[str, A.Compose]:
+    """
+    Load Albumentations augmentation transforms for training, validation, and
+    inference. Does not assume any patching. Assumes that training from
+    scratch, therefore uses COCO dataset means and stds for normalization.
+
+    Arguments:
+        - image_size (int): size of image height and width in pixels
+
+    Returns:
+        - dict[str, A.Compose]: dictionary with Albumentations transforms for
+        each of "training", "val", and "inference" keys
+    """
     train_transform = A.Compose(
         [
             A.Resize(
@@ -63,7 +112,7 @@ def get_COCO_transforms(image_size: int) -> dict[str, A.Compose]:
             A.ColorJitter(p=0.15),
             A.GaussNoise(p=0.15),
             A.Normalize(
-                mean=[0.4690, 0.4456, 0.4062],
+                mean=[0.4690, 0.4456, 0.4062], # COCO Normalization
                 std=[0.2752, 0.2701, 0.2847],
                 max_pixel_value=255.0
             ),
@@ -129,18 +178,18 @@ def get_inference_loader(
     return inference_ds, inference_loader
 
 def get_CoNSeP_loaders(
-    image_path: str,
-    mask_path: str,
+    train_path: str,
+    val_path: str,
     batch_size: int,
     num_workers: int,
     pin_memory: bool,
     transforms: dict[str, A.Compose],
     image_ext: str = "png",
-    mask_ext: str = "png",
+    mask_ext: str = "mat",
 ) -> tuple[DataLoader[object]]:
     train_ds = CoNSePDataset(
-        os.path.join(image_path, "train2017"),
-        os.path.join(mask_path, "train2017"),
+        os.path.join(train_path, "Images"),
+        os.path.join(train_path, "Labels"),
         image_ext=image_ext,
         mask_ext=mask_ext,
         transform=transforms["train"]
@@ -154,8 +203,8 @@ def get_CoNSeP_loaders(
     )
 
     val_ds = CoNSePDataset(
-        os.path.join(image_path, "val2017"),
-        os.path.join(mask_path, "val2017"),
+        os.path.join(val_path, "Images"),
+        os.path.join(val_path, "Labels"),
         image_ext=image_ext,
         mask_ext=mask_ext,
         transform=transforms["val"]
