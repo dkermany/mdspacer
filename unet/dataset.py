@@ -3,6 +3,8 @@ import cv2
 import numpy as np
 import torch
 import albumentations as A
+import collections
+from pprint import pprint
 from os.path import join, splitext, basename, normpath
 from scipy.io import loadmat
 from torch import Tensor
@@ -32,6 +34,27 @@ def get_filenames(
     if fullpath:
         return sorted(filenames)
     return sorted([basename(normpath(f)) for f in filenames])
+
+def get_class_weights(loader: DataLoader, num_classes: int):
+    # num_classes should include the background class
+    label_dict = collections.defaultdict(int)
+    total_labels = 0
+    for data, targets in tqdm(loader):
+        unique, counts = torch.unique(targets, return_counts=True)
+        total_labels += torch.sum(counts).item()
+        for u, c in zip(unique, counts):
+            label_dict[int(u.item())] += c.item()
+
+    class_weights = torch.ones(len(label_dict))
+    for k, v in label_dict.items():
+        class_weights[k] = v
+
+    # Expected (balanced) divided by actual (unbalanced) distribution 
+    class_weights = (1. / num_classes) / (class_weights / total_labels)
+
+    #assert class_weights.shape[0] == num_classes
+    return class_weights
+
 
 class BaseDataset(Dataset):
     """
@@ -169,21 +192,30 @@ class CoNSePDataset(TrainDataset):
         # Load in mask info from .mat file as numpy array
         x = loadmat(mask_path)
 
-        # Add inflammatory classes (1, 2) in 0th layer
-        mask = (x['type_map']==1).astype(int) +\
-               (x['type_map']==2).astype(int)
-        mask = mask[:, :, None]
+        mask = (x["inst_map"]>=1).astype(int)
 
-        # Add epithelial classes (3, 4) in 1th layer
-        temp = ((x['type_map']==3).astype(int) +\
-                (x['type_map']==4).astype(int))[:, :, None]
-        mask = np.concatenate((mask,temp), axis=2)
+        # Add background class (0) in 0th layer
+        # mask = (x['type_map']==0).astype(int)
+        # mask = mask[:, :, None]
 
-        # Add spindle-shaped classes (5, 6, 7) in 2nd layer
-        temp = ((x['type_map']==5).astype(int) +\
-                (x['type_map']==6).astype(int) +\
-                (x['type_map']==7).astype(int))[:, :, None]
-        mask = np.concatenate((mask,temp), axis=2)
+        # temp = ((x['type_map']>0).astype(int))[:, :, None]
+        # mask = np.concatenate((mask,temp), axis=2)
+
+        # Add inflammatory classes (1, 2) in 1st layer
+        # temp = ((x['type_map']==1).astype(int) +\
+        #         (x['type_map']==2).astype(int))[:, :, None]
+        # mask = np.concatenate((mask,temp), axis=2)
+
+        # # Add epithelial classes (3, 4) in 2nd layer
+        # temp = ((x['type_map']==3).astype(int) +\
+        #         (x['type_map']==4).astype(int))[:, :, None]
+        # mask = np.concatenate((mask,temp), axis=2)
+
+        # # Add spindle-shaped classes (5, 6, 7) in 3rd layer
+        # temp = ((x['type_map']==5).astype(int) +\
+        #         (x['type_map']==6).astype(int) +\
+        #         (x['type_map']==7).astype(int))[:, :, None]
+        # mask = np.concatenate((mask,temp), axis=2)
 
         mask = mask.astype("float32")
         mask[mask >= 1] = 1
@@ -194,8 +226,8 @@ class CoNSePDataset(TrainDataset):
 
         # convert from channel_last format to channel_first
         _check_CoNSeP_image(image)
-        _check_CoNSeP_image(mask.permute(2,0,1))
-        return image, mask.permute(2,0,1)
+        #return image, torch.argmax(mask, dim=2)
+        return image, mask
 
 class COCODataset(TrainDataset):
     def __getitem__(self, index: int) -> tuple[Tensor]:

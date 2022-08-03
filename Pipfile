@@ -33,6 +33,7 @@ pytest = "*"
 typing-extensions = "*"
 pandas = "*"
 torchvision = "*"
+pyclesperanto-prototype = "*"
 
 [dev-packages]
 

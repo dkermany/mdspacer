@@ -1,3 +1,4 @@
+import os
 import torchmetrics
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -20,16 +21,17 @@ class UNetMetrics:
         # parameters to be passed to torchmetric classes
         params = {
             "num_classes": self.num_classes,
-            "ignore_index": 0,
             "mdmc_average": "global",
             "average": "micro",
         }
+        if self.num_classes > 1:
+            params["ignore_index"] = 0
 
         # holder for torchmetric instances
         self.metrics: dict[str, dict[str, object]] = {
             stage: {
-                "acc": torchmetrics.Accuracy(**params).to(device=self.device),
-                "dice": torchmetrics.Dice(**params).to(device=self.device),
+                "acc": torchmetrics.Accuracy(**params, multiclass=False).to(device=self.device),
+                "dice": torchmetrics.Dice(**params, multiclass=False).to(device=self.device),
               # "iou": torchmetrics.JaccardIndex(**params).to(device=DEVICE),
             } for stage in ["train", "val"]
         }
@@ -197,7 +199,7 @@ class UNetMetrics:
         plt.legend(bbox_to_anchor=(1.02, 1), loc="upper left", borderaxespad=0)
 
         # Save image to disk
-        lplot.figure.savefig(join(output_dir, "training_curves.png"))
+        lplot.figure.savefig(os.path.join(output_dir, "training_curves.png"))
 
     def write_to_file(self, output_dir: str):
         """

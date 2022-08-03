@@ -1,7 +1,6 @@
 import argparse
-import numpy as np
-import cv2
-import tifffile as tiff
+import os
+import tifffile
 from oiffile import OifFile
 
 class OifImageViewer:
@@ -47,6 +46,6 @@ if __name__ == "__main__":
         type=str,
         help="Path to .oib/.oif stitched file"
     )
-    FLAGS, _ = parser.get_known_args()
+    FLAGS, _ = parser.parse_known_args()
     main()
 
