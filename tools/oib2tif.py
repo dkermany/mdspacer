@@ -10,15 +10,27 @@ class OifImageViewer:
 
     def __init__(self, oif: OifFile) -> None:
         self._arr = oif.asarray()
+        self.md = {
+            "x_step": oif.mainfile["Reference Image Parameter"]["WidthConvertValue"],
+            "y_step": oif.mainfile["Reference Image Parameter"]["HeightConvertValue"],
+            "z_step": oif.mainfile["Axis 3 Parameters Common"]["Interval"],
+            "x_unit": oif.mainfile["Reference Image Parameter"]["WidthUnit"],
+            "y_unit": oif.mainfile["Reference Image Parameter"]["HeightUnit"],
+            "z_unit": oif.mainfile["Axis 3 Parameters Common"]["PixUnit"],
+        }
 
     def save_as_tif(self, filename: str) -> None:
-        tifffile.imwrite(filename, self._arr)
+        tifffile.imwrite(filename, self._arr, metadata=self.md)
 
     def __str__(self):
+        cnvt_labels = [self.md["x_step"], self.md["x_unit"],
+                       self.md["y_step"], self.md["y_unit"],
+                       self.md["z_step"], self.md["z_unit"]]
         return (
             f"Image shape: {self._arr.shape}\n"
             "Axes: CZYX\n"
             f"Dtype: {self._arr.dtype}\n"
+            "Intervals: X ({}{}) Y ({}{}) Z ({}{})\n".format(*cnvt_labels)
         )
 
 def validate_path(path: str) -> str:

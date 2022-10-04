@@ -20,7 +20,6 @@ pillow = "*"
 requests = "*"
 tqdm = "*"
 tifffile = "*"
-notebook = "*"
 patchify = "*"
 jupyterthemes = "*"
 albumentations = "*"
@@ -34,6 +33,8 @@ typing-extensions = "*"
 pandas = "*"
 torchvision = "*"
 pyclesperanto-prototype = "*"
+pynrrd = "*"
+napari = "*"
 
 [dev-packages]
 
