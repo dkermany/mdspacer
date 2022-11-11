@@ -10,21 +10,18 @@
 -->
 <!-- PROJECT LOGO -->
 <div align="center">
-<!--   <a href="https://github.com/othneildrew/Best-README-Template">
-    <img src="images/logo.png" alt="Logo" width="80" height="80">
-  </a> -->
 
   <h3 align="center">BoneMetsAI</h3>
 
   <p align="center">
     A library for the analyses of microscopy images of breast cancer metastases in mouse femur models  
     <br />
-    <a href="#">View Demo</a>
-    ·
     <a href="https://github.com/dkermany/BoneMetsAI/issues">Report Bug</a>
     ·
     <a href="https://github.com/dkermany/BoneMetsAI/issues">Request Feature</a>
   </p>
+  
+  <img src="img/cover-photo.gif">
 </div>
 
 <!-- TABLE OF CONTENTS -->
@@ -40,8 +37,8 @@
     </ul>
   </li>
   <li><a href="#usage">Usage</a></li>
-  <li><a href="#roadmap">Roadmap</a></li>
   <li><a href="#acknowledgments">Acknowledgments</a></li>
+  <li><a href="#useful-links">Useful Links</a></li>
 </ol>
 
 <!-- ABOUT THE PROJECT -->
@@ -49,46 +46,20 @@
 
 ### Objectives
 
-![Alt text](/cover_image.png?raw=true)
+Determine if there is any morphological changes to bone blood vessels in the vicinity of identified metastasized breast cancer cells, as well as any 3D spatial relationships between NG2+ stromal cells and disseminated tumor cells.
 
-Determine if there is any morphological changes to bone blood vessels in the vicinity of identified metastasized breast cancer cells, as well as any spatio-temporal relationship between NG2+ endothelial cells and the tumor cells.
-
-In order to do so, the following plan was developed:
-TODO
 <p align="right">(<a href="#top">back to top</a>)</p>
 
 <!-- ROADMAP -->
-## Roadmap
+<!-- ## Roadmap
 - [x] Reproduce previous work in matlab
 - [x] Manually labeled 2D samples
-- [x] Segmentation Datasets Loaded
-  - [x] 2D Bone Microscope slices (JPG/PNG)
-  - [x] [COCO](https://cocodataset.org/) Data Preprocessing
-  - [x] [CoNSeP](https://warwick.ac.uk/fac/cross_fac/tia/data/hovernet/) Data Preprocessing
-  - [ ] 3D Bone Microscope slices (OIF/OIB/TIFF)
-- [ ] Segmentation
-  - [x] Reproduce previous work
-  - [ ] Write evaluation functions
-    - [ ] Class-weighted pixelwise accuracy
-    - [x] Class-weighted jaccard score
-    - [ ] Class-weighted dice score
-  - [x] Write UNet Base Model
-    - [x] Train weights on COCO Dataset
-    - [x] Continue training weights on CoNSeP Dataset
-    - [x] Train on half of bone images
-  - [x] Compare with previous work
-  - [x] Try with ImageNet pretrained encoder-decoders
-- [ ] Classification Datasets Loaded
-  - [ ] Binary `affected` vs `unaffected` vessels based on tumor cell vicinity
-    - [ ] Vessel instance segmentation and bounding box patch generation
-  - [ ] Train
+- [x] Segmentation Datasets Loaded 
 
-<p align="right">(<a href="#top">back to top</a>)</p>
-
+<p align="right">(<a href="#top">back to top</a>)</p> -->
 <!-- GETTING STARTED -->
 ## Getting Started
-
-Libraries and environment setup using the `pipenv` library.
+Libraries and environment setup using the <a href="https://pipenv.pypa.io/en/latest/install/">pipenv</a> library.
 
 ### Prerequisites
 
@@ -96,19 +67,26 @@ Install dependencies
   ```sh
   pipenv install --dev
   ```
-
 <!-- USAGE EXAMPLES -->
 ## Usage
-Run training from scratch
+Jupyter Notebook from local
 ```sh
-  python unet/train.py --images /path/to/images --masks /path/to/masks
+  # on local machine terminal
+  jupyter-notebook
   ```
 
-TODO
-- Evaluation
-- Utils
+Jupyter Notebook from server
+```sh
+  # on server terminal
+  jupyter-notebook --no-browser --port 7777
+  
+  # on local terminal
+  # create ssh tunnel on port 7777
+  ssh -NfL 7777:localhost:7777 username@serveraddress
+  
+  # open local browser and navigate to `localhost:7777` to see jupyter notebook
+  ```
 <p align="right">(<a href="#top">back to top</a>)</p>
-
 
 <!-- CONTRIBUTING -->
 <!-- ## Contributing
@@ -125,8 +103,6 @@ Don't forget to give the project a star! Thanks again!
 5. Open a Pull Request
 <p align="right">(<a href="#top">back to top</a>)</p> -->
 
-
-
 <!-- LICENSE -->
 <!-- ## License
 
@@ -137,14 +113,14 @@ Distributed under the MIT License. See `LICENSE.txt` for more information.
 <!-- ACKNOWLEDGMENTS -->
 ## Acknowledgments
 * Dr. Stephen Wong
-* Dr. Jianting Sheng
+* Dr. Xiang Zhang
 * Dr. Weijie Zhang
-* Yunjie He
+* Dr. Jianting Sheng
 <p align="right">(<a href="#top">back to top</a>)</p>
 
 <!-- Useful Links -->
 ## Useful Links
-* <a href="https://tinyurl.com/QuantificationTortuosity">Quantification of Tortuosity (Article)</a>
+* Bone metastasis initiation is coupled with bone remodeling through osteogenic differentiation of NG2+ cells <a href="https://aacrjournals.org/cancerdiscovery/article/doi/10.1158/2159-8290.CD-22-0220/710013/Bone-metastasis-initiation-is-coupled-with-bone">(Article)</a>
 <p align="right">(<a href="#top">back to top</a>)</p>
 
 <!-- MARKDOWN LINKS & IMAGES -->
