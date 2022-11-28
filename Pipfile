@@ -36,6 +36,8 @@ pyclesperanto-prototype = "*"
 pynrrd = "*"
 napari = "*"
 pyqt5 = "*"
+ipympl = "*"
+ipytest = "*"
 
 [dev-packages]
 
