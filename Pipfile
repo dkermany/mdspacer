@@ -38,6 +38,9 @@ napari = "*"
 pyqt5 = "*"
 ipympl = "*"
 ipytest = "*"
+raster-geometry = "*"
+pyside6 = "*"
+ipyvolume = "*"
 
 [dev-packages]
 
