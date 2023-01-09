@@ -33,7 +33,7 @@ class Ripley():
 
     def run_ripley(self, processes=32):
         with mp.Pool(processes) as pool:
-            pool.map(self._calc_ripley, radii)
+            pool.map(self._calc_ripley, self.radii)
             # list(tqdm(pool.imap(self._calc_ripley, self.radii), total=len(self.radii)))
 
         # print("done")
