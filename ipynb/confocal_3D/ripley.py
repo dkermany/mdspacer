@@ -1,11 +1,13 @@
 import numpy as np
-import torch
-import torch.multiprocessing as mp
+# import torch
+# import torch.multiprocessing as mp
+import multiprocessing as mp
 from tqdm import tqdm
 from scipy import spatial, stats
 from functools import reduce
 import flyingcircus as fc
 import flyingcircus_numeric as fcn
+import raster_geometry as rg
 
 
 class Ripley():
@@ -27,10 +29,12 @@ class Ripley():
         self.tree = spatial.cKDTree(self.points)
         self.study_volume = reduce(lambda x, y: x * y, self.volume_shape)
 
+        self.pbar = tqdm(total=len(self.points) * len(self.radii))
+
     def run_ripley(self, processes=32):
         with mp.Pool(processes) as pool:
-            # pool.map(self._calc_ripley, radii)
-            list(tqdm(pool.imap(self._calc_ripley, self.radii), total=len(self.radii)))
+            pool.map(self._calc_ripley, radii)
+            # list(tqdm(pool.imap(self._calc_ripley, self.radii), total=len(self.radii)))
 
         # print("done")
         # print(self.results["K"])
@@ -85,7 +89,7 @@ class Ripley():
             # query_ball_point() includes the index of the current point as well
             # so 1 is subtracted from the count
             nb_count += (len(self.tree.query_ball_point([z, y, x], radius)) - 1) / weight
-
+            self.pbar.update()
 
         # calculating 3D Ripley's functions (K, L, H)
         N = self.points.shape[0]
@@ -153,7 +157,7 @@ def draw_sphere_in_volume(volume: np.ndarray, radius: int, position: tuple) -> N
     midpoint = [size / 2] * 3
 
     # Generate a unit sphere using the rg library's superellipsoid function
-    sphere = test_superellipsoid(size, radius, position=midpoint,
+    sphere = rg.nd_superellipsoid(size, radius, position=midpoint,
                                   rel_sizes=False, rel_position=False).astype(np.int_)
 
     # Extract the z, y, x coordinates of the position where the sphere will be drawn
