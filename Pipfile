@@ -41,12 +41,10 @@ raster-geometry = "*"
 pyside6 = "*"
 ipyvolume = "*"
 line-profiler = "*"
+scipy = "*"
+torch = {index = "downloadpytorch", version = "==1.11.0+cu113"}
 
 [dev-packages]
 
 [requires]
 python_version = "3.9"
-
-[packages.torch]
-index = "downloadpytorch"
-version = "==1.11.0+cu113"
