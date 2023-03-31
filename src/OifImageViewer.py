@@ -13,9 +13,9 @@ class OifImageViewer:
         self._arr = oif.asarray()
         self.figsize = (25,25)
         self.md = {
-            "x_step": oif.mainfile["Reference Image Parameter"]["WidthConvertValue"],
-            "y_step": oif.mainfile["Reference Image Parameter"]["HeightConvertValue"],
-            "z_step": oif.mainfile["Axis 3 Parameters Common"]["Interval"],
+            "x_step": float(oif.mainfile["Reference Image Parameter"]["WidthConvertValue"]),
+            "y_step": float(oif.mainfile["Reference Image Parameter"]["HeightConvertValue"]),
+            "z_step": float(oif.mainfile["Axis 3 Parameters Common"]["Interval"]),
             "x_unit": oif.mainfile["Reference Image Parameter"]["WidthUnit"],
             "y_unit": oif.mainfile["Reference Image Parameter"]["HeightUnit"],
             "z_unit": oif.mainfile["Axis 3 Parameters Common"]["PixUnit"],
