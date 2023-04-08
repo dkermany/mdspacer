@@ -1,0 +1,30 @@
+{
+    "_meta": {
+        "hash": {
+            "sha256": "7f0e0aa5b834cca5e33f4ccb1a37405fd8b67b0231dc77cfddfd243df5a5808d"
+        },
+        "pipfile-spec": 6,
+        "requires": {
+            "python_version": "3.9"
+        },
+        "sources": [
+            {
+                "name": "pypi",
+                "url": "https://pypi.python.org/simple",
+                "verify_ssl": true
+            },
+            {
+                "name": "downloadpytorch",
+                "url": "https://download.pytorch.org/whl/cu113/",
+                "verify_ssl": true
+            }
+        ]
+    },
+    "default": {
+        "torch": {
+            "index": "downloadpytorch",
+            "version": "==1.11.0+cu113"
+        }
+    },
+    "develop": {}
+}

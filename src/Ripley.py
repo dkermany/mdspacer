@@ -5,19 +5,22 @@ from scipy import spatial
 from functools import reduce
 from tqdm import tqdm
 
+cache = mp.Manager().dict()
+
 class Ripley():
     def __init__(
         self,
         points: np.ndarray,
         radii: list,
         mask: np.ndarray,
-        boundary_correction: bool = True
     ):
         self.points = points
         self.radii = radii
-        self.mask = mask.astype(np.uint8)
+        if mask:
+            self.mask = mask.astype(np.uint8)
+            self.boundary_correction = True
+
         self.volume_shape = self.mask.shape
-        self.boundary_correction = boundary_correction
         self._validate_inputs()
 
         self.tree = spatial.cKDTree(self.points)
@@ -153,14 +156,16 @@ class CrossRipley(Ripley):
         points_j: np.ndarray,
         radii: list,
         mask: np.ndarray,
-        boundary_correction: bool = False
     ):
         self.points_i = points_i
         self.points_j = points_j
         self.radii = radii
-        self.mask = mask.astype(np.uint8)
+
+        if mask:
+            self.mask = mask.astype(np.uint8)
+            self.boundary_correction = True
+        
         self.volume_shape = self.mask.shape
-        self.boundary_correction = boundary_correction
         self._validate_inputs()
 
         self.i_tree = spatial.cKDTree(self.points_i)
@@ -225,7 +230,7 @@ class CrossRipley(Ripley):
         
         # Verify K/L values positive
         if K_ij < 0 or L_ij < 0:
-            raise ValueError(f"K/L values should not be negative. nb_count: {nb_count}, volume: {self.volume_shape}, N_i: {N_i}, N_j: {N_j}")
+            raise ValueError(f"K/L values should not be negative. nb_count: {nb_count}, N_i: {N_i}, N_j: {N_j}")
 
         self.results["K"].append((radius, K_ij))
         self.results["L"].append((radius, L_ij))
