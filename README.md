@@ -11,14 +11,14 @@
 <!-- PROJECT LOGO -->
 <div align="center">
 
-  <h3 align="center">BoneMetsAI</h3>
+  <h3 align="center">PySpatial3D</h3>
 
   <p align="center">
-    A library for the analyses of microscopy images of breast cancer metastases in mouse femur models  
+    A library for the spatial analyses of 3D fluorescence images
     <br />
-    <a href="https://github.com/dkermany/BoneMetsAI/issues">Report Bug</a>
+    <a href="https://github.com/dkermany/PySpatial3D/issues">Report Bug</a>
     ·
-    <a href="https://github.com/dkermany/BoneMetsAI/issues">Request Feature</a>
+    <a href="https://github.com/dkermany/PySpatial3D/issues">Request Feature</a>
   </p>
   
   <img src="img/cover-photo.gif">
