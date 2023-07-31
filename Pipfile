@@ -47,6 +47,7 @@ keras = "*"
 cupy-cuda12x = "*"
 fast-upfirdn = "*"
 connected-components-3d = "*"
+dijkstra3d = "*"
 
 [dev-packages]
 
