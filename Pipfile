@@ -44,10 +44,10 @@ line-profiler = "*"
 scipy = "*"
 torch = {index = "downloadpytorch", version = "==1.11.0+cu113"}
 keras = "*"
-cupy-cuda12x = "*"
-fast-upfirdn = "*"
+# fast-upfirdn = "*"
 connected-components-3d = "*"
 dijkstra3d = "*"
+cupy-cuda111 = "*"
 
 [dev-packages]
 
