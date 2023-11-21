@@ -33,7 +33,6 @@ pandas = "*"
 torchvision = "*"
 pyclesperanto-prototype = "*"
 pynrrd = "*"
-napari = "*"
 pyqt5 = "*"
 ipympl = "*"
 ipytest = "*"
@@ -48,6 +47,7 @@ keras = "*"
 connected-components-3d = "*"
 dijkstra3d = "*"
 cupy-cuda111 = "*"
+napari = "*"
 
 [dev-packages]
 
