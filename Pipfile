@@ -10,7 +10,7 @@ name = "downloadpytorch"
 
 [packages]
 ipykernel = "*"
-numpy = "*"
+numpy = "==1.23.5"
 matplotlib = "*"
 torchaudio = "*"
 oiffile = "*"
