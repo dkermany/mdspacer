@@ -34,7 +34,7 @@ def replace_np_values(arr: np.ndarray, map: dict) -> np.ndarray:
     fn = np.vectorize(lambda x: map.get(x, 0) * 255)
     return fn(arr)
 
-def dict_to_pointlist(dict: tumor_dict) -> np.ndarray:
+def dict_to_pointlist(tumor_dict: dict) -> np.ndarray:
     pointlist = np.zeros((3, len(tumor_dict)))
     for idx, tumor_info in tumor_dict.items():
         x_um, y_um, z_slice = map(int, (tumor_info["x (um)"], tumor_info["y (um)"], tumor_info["z (slice)"]))

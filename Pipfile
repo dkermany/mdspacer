@@ -48,6 +48,7 @@ connected-components-3d = "*"
 dijkstra3d = "*"
 cupy-cuda111 = "*"
 napari = "*"
+python-dotenv = "*"
 
 [dev-packages]
 
