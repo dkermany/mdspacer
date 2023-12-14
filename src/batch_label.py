@@ -193,6 +193,9 @@ if __name__ == "__main__":
                     thickness=-1,
                 )
 
+        original_tumor = cle.push(viewer.get_array()[0])
+        masked_tumor = cle.mask(original_tumor, mask)
+
         combined_tumor_image = cle.pull(masked_tumor.copy())
 
         tumor_mask = tumor_labels != 0
@@ -212,6 +215,8 @@ if __name__ == "__main__":
 
         # Vessel Segmentation
         # -----------------------------
+        original_vessels = cle.push(viewer.get_array()[2])
+        masked_vessels = cle.mask(original_vessels, mask)
 
         del original_vessels 
 
