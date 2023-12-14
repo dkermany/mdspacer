@@ -49,6 +49,7 @@ dijkstra3d = "*"
 cupy-cuda111 = "*"
 napari = "*"
 python-dotenv = "*"
+load-dotenv = "*"
 
 [dev-packages]
 
