@@ -15,6 +15,7 @@ import cupy as cp
 import cc3d
 import dijkstra3d
 import itertools
+from dotenv import load_dotenv
 from skimage.morphology import skeletonize_3d
 from cupyimg.scipy.ndimage.morphology import binary_hit_or_miss
 from tqdm import tqdm
@@ -34,7 +35,7 @@ def replace_np_values(arr: np.ndarray, map: dict) -> np.ndarray:
     fn = np.vectorize(lambda x: map.get(x, 0) * 255)
     return fn(arr)
 
-def dict_to_pointlist(dict: tumor_dict) -> np.ndarray:
+def dict_to_pointlist(tumor_dict: dict) -> np.ndarray:
     pointlist = np.zeros((3, len(tumor_dict)))
     for idx, tumor_info in tumor_dict.items():
         x_um, y_um, z_slice = map(int, (tumor_info["x (um)"], tumor_info["y (um)"], tumor_info["z (slice)"]))
@@ -112,9 +113,17 @@ def euclidean_distance(point1, point2):
     return np.linalg.norm(np.array(point1)-np.array(point2))
 
 if __name__ == "__main__":
-    ROOTPATH = os.environ.get("ROOTPATH")
+    load_dotenv()
+
+    ROOTPATH = os.getenv("ROOTPATH")
+    BONEPATH = os.getenv("BONEPATH")
+
+    if ROOTPATH is None:
+        raise ValueError("ROOTPATH environment variable is not set. Run setup.py")
+    if BONEPATH is None:
+        raise ValueError("BONEPATH environment variable is not set. Run setup.py")
+    
     LIBPATH = os.path.join(ROOTPATH, "lib")
-    BONEPATH = os.environ.get("BONEPATH")
     OIBPATH = os.path.join(BONEPATH, "weijie_selected/main_folder/FV10__oibs/")
 
     oib_files = get_oib_files(OIBPATH)
@@ -122,10 +131,10 @@ if __name__ == "__main__":
         raise ValueError(f"No .oib files found at {OIBPATH}")
 
     for image_path in oib_files:
+        filename = os.path.splitext(os.path.basename(image_path))[0]
+        
         # Initialize progress bar
         pbar = tqdm(range(10), desc=filename, leave=True)
-
-        filename = os.path.splitext(os.path.basename(image_path))[0]
 
         with OifFile(image_path) as oif:
             viewer = OifImageViewer(oif)
