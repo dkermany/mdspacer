@@ -20,10 +20,10 @@ class OifImageViewer:
             "y_unit": oif.mainfile["Reference Image Parameter"]["HeightUnit"],
             "z_unit": oif.mainfile["Axis 3 Parameters Common"]["PixUnit"],
         }
-        print(self)
+        # print(self)
         
     def get_image(self, ch=0, z=0, beta=255) -> np.ndarray:
-        print(self._arr.dtype)
+        # print(self._arr.dtype)
         """Return image slice through specified z value"""
         return self.normalize(self._arr[ch][z], beta=beta)
     
