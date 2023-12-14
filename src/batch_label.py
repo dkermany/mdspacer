@@ -1,7 +1,7 @@
 import matplotlib
 import pyclesperanto_prototype as cle
 cle.select_device('RTX')
-print("Using OpenCL device " + cle.get_device().name)
+# print("Using OpenCL device " + cle.get_device().name)
 
 import math
 import numpy as np
@@ -253,12 +253,12 @@ if __name__ == "__main__":
         kernel_cache_path = os.path.join(LIBPATH, "unique_kernels.npy")
         if os.path.exists(kernel_cache_path):
             # Load unique kernels from cache
-            print("Unique kernel cache found! Loading...")
+            # print("Unique kernel cache found! Loading...")
             kernels = load_from_cache(kernel_cache_path)
-            print(f"{len(kernels)} kernels loaded!")
+            # print(f"{len(kernels)} kernels loaded!")
         else:
             # Get unique kernels
-            print("Kernel cache not found! Generating...")
+            # print("Kernel cache not found! Generating...")
             kernels = get_unique_kernels()
 
         # Update progress bar
@@ -266,7 +266,7 @@ if __name__ == "__main__":
 
         branch_pts_img = cp.zeros(skeleton.shape, dtype=int)
         cp_skeleton = cp.asarray(skeleton)
-        for kernel in tqdm(kernels):
+        for kernel in tqdm(kernels, disable=True):
             branch_pts_img = cp.logical_or(
                 binary_hit_or_miss(cp_skeleton, structure1=cp.asarray(kernel)),
                 branch_pts_img,
@@ -390,8 +390,8 @@ if __name__ == "__main__":
             # tortuosity_lib[int(label)] = min(float(tortuosity), 3.)
             tortuosity_lib[int(label)] = float(tortuosity)
 
-        print("Finished calculating tortuosity for each segment")
-        print("Now replacing label with tortuosity value in full image")
+        # print("Finished calculating tortuosity for each segment")
+        # print("Now replacing label with tortuosity value in full image")
 
         # Update progress bar
         pbar.update()
@@ -409,10 +409,10 @@ if __name__ == "__main__":
         t_values = np.array(list(t_key.values()))
         t_std = np.std(t_values)
         t_mean = np.mean(t_values)
-        print(f"Tortuosity Mean: {t_mean:.4f} +/- {t_std:.4f}")
+        # print(f"Tortuosity Mean: {t_mean:.4f} +/- {t_std:.4f}")
 
         t_threshold = t_mean + 2*t_std
-        print(f"Tortuosity Threshold set to {t_threshold}")
+        # print(f"Tortuosity Threshold set to {t_threshold}")
 
         t_min, t_max = np.min(t_values), np.max(t_values)
 
@@ -426,13 +426,13 @@ if __name__ == "__main__":
         result_values = result_array[result_array>0].flatten()
         result_std = np.std(result_values)
         result_mean = np.mean(result_values)
-        print(f"Tortuosity Mean: {result_mean:.4f} +/- {result_std:.4f}")
+        # print(f"Tortuosity Mean: {result_mean:.4f} +/- {result_std:.4f}")
 
         result_threshold = result_mean + 3*result_std
-        print(f"Tortuosity Threshold set to {t_threshold}")
+        # print(f"Tortuosity Threshold set to {t_threshold}")
 
         result_min, result_max = np.min(result_values), np.max(result_values)
-        print(result_min, result_max)
+        # print(result_min, result_max)
 
         bin_result_array = result_array.copy()
         low_thresh_idx = np.where(np.logical_and(bin_result_array > 0,
