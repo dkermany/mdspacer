@@ -21,10 +21,9 @@ def get_unique_tip_kernels():
         unique_tip_kernels.extend(_get_unique_orientations(kernel))
     return unique_tip_kernels
 
-def get_unique_kernels():
+def get_unique_kernels(path):
     kernels = []
-    txt_path = "../../lib/four-way-kernels.txt"
-    for kernel in _get_kernels() + _load_generated_txt_kernels(txt_path):
+    for kernel in _get_kernels() + _load_generated_txt_kernels(path):
         kernels.extend(_get_unique_orientations(kernel))
     return _find_unique_kernels(kernels)
 
