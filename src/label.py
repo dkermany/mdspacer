@@ -15,6 +15,7 @@ import cupy as cp
 import cc3d
 import dijkstra3d
 import itertools
+import argparse
 from dotenv import load_dotenv
 from skimage.morphology import skeletonize_3d
 from cupyimg.scipy.ndimage.morphology import binary_hit_or_miss
@@ -118,19 +119,19 @@ if __name__ == "__main__":
         "--image",
         type=str,
         required=True,
-        info="Path to image"
+        help="Path to image"
     )
     parser.add_argument(
         "--ROOTPATH",
         type=str,
         required=True,
-        info="Path to project root dir"
+        help="Path to project root dir"
     )
     parser.add_argument(
         "--BONEPATH",
         type=str,
         required=True,
-        info="Path to data root dir"
+        help="Path to data root dir"
     )
     FLAGS, _ = parser.parse_known_args()
     
@@ -281,7 +282,9 @@ if __name__ == "__main__":
     # 24411 old
     branch_points = np.nonzero(branch_pts_img)
 
-    np.save(os.path.join(FLAGS.BONEPATH, f"branch_points/{filename}_branch_points.npy", np.array(branch_points)))
+    np.save(os.path.join(FLAGS.BONEPATH,
+                         f"branch_points/{filename}_branch_points.npy"),
+            np.array(branch_points))
 
     dilated_branch_pts_img = cle.dilate_box(branch_pts_img)
 
@@ -455,7 +458,9 @@ if __name__ == "__main__":
     # Update progress bar
     pbar.update()
 
-    np.save(os.path.join(FLAGS.BONEPATH, f"tortuous_segment_centroids/{filename}_tortuous_segment_centroid.npy", np.array(tortuous_segments_pointlist)))
+    np.save(os.path.join(FLAGS.BONEPATH,
+                         f"tortuous_segment_centroids/{filename}_tortuous_segment_centroid.npy"),
+            np.array(tortuous_segments_pointlist))
     del bin_result_array
 
     original_ng2 = cle.push(viewer.get_array()[1])
@@ -485,7 +490,9 @@ if __name__ == "__main__":
 
     a = cle.centroids_of_labels(smalls_filtered_out)
 
-    np.save(os.path.join(FLAGS.BONEPATH, f"NG2_Centroids/{filename}_NG2_centroids.npy", np.array(a)))
+    np.save(os.path.join(FLAGS.BONEPATH,
+                         f"NG2_Centroids/{filename}_NG2_centroids.npy"),
+            np.array(a))
 
     # Update progress bar
     pbar.update()
