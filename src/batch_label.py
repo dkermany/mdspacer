@@ -130,7 +130,7 @@ if __name__ == "__main__":
     if len(oib_files) == 0:
         raise ValueError(f"No .oib files found at {OIBPATH}")
 
-    for image_path in oib_files:
+    for image_path in reversed(oib_files):
         filename = os.path.splitext(os.path.basename(image_path))[0]
         
         # Initialize progress bar
@@ -276,7 +276,8 @@ if __name__ == "__main__":
         # 24411 old
         branch_points = np.nonzero(branch_pts_img)
 
-        np.save(os.path.join(BONEPATH, f"branch_points/{filename}_branch_points.npy", np.array(branch_points)))
+        np.save(os.path.join(BONEPATH, f"branch_points/{filename}_branch_points.npy"),
+                np.array(branch_points))
 
         dilated_branch_pts_img = cle.dilate_box(branch_pts_img)
 
@@ -450,7 +451,8 @@ if __name__ == "__main__":
         # Update progress bar
         pbar.update()
 
-        np.save(os.path.join(BONEPATH, f"tortuous_segment_centroids/{filename}_tortuous_segment_centroid.npy", np.array(tortuous_segments_pointlist)))
+        np.save(os.path.join(BONEPATH, f"tortuous_segment_centroids/{filename}_tortuous_segment_centroid.npy"),
+                np.array(tortuous_segments_pointlist))
         del bin_result_array
 
         original_ng2 = cle.push(viewer.get_array()[1])
@@ -480,7 +482,8 @@ if __name__ == "__main__":
 
         a = cle.centroids_of_labels(smalls_filtered_out)
 
-        np.save(os.path.join(BONEPATH, f"NG2_Centroids/{filename}_NG2_centroids.npy", np.array(a)))
+        np.save(os.path.join(BONEPATH, f"NG2_Centroids/{filename}_NG2_centroids.npy"),
+                np.array(a))
 
         # Update progress bar
         pbar.update()
