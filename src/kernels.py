@@ -14,10 +14,16 @@ BASE_KERNEL = [[[0,0,0],
                 [0,0,0],
                 [0,0,0]]]
 
-def get_unique_kernels():
+def get_unique_tip_kernels():
+    unique_tip_kernels = []
+    tip_kernels = _get_tip_kernels()
+    for kernel in tip_kernels:
+        unique_tip_kernels.extend(_get_unique_orientations(kernel))
+    return unique_tip_kernels
+
+def get_unique_kernels(path):
     kernels = []
-    txt_path = "../../lib/four-way-kernels.txt"
-    for kernel in _get_kernels() + _load_generated_txt_kernels(txt_path):
+    for kernel in _get_kernels() + _load_generated_txt_kernels(path):
         kernels.extend(_get_unique_orientations(kernel))
     return _find_unique_kernels(kernels)
 
@@ -103,6 +109,51 @@ def _find_unique_kernels(kernels, save_path="../../lib/unique_kernels.npy"):
     np.save(save_path, unique_kernels)
     print("Kernel cache generated successfully!")
     return unique_kernels
+    
+
+def _get_tip_kernels():
+    tip_kernels = []
+
+    # Filter 1
+    tip_kernels.append(np.array([[[0, 0, 0],
+                                  [0, 0, 0],
+                                  [0, 0, 0]
+                                 ],
+                                 [[0, 0, 1],
+                                  [0, 1, 0],
+                                  [0, 0, 0]
+                                 ],
+                                 [[0, 0, 0],
+                                  [0, 0, 0],
+                                  [0, 0, 0]]]))
+    
+    # Filter 2
+    tip_kernels.append(np.array([[[0, 0, 0],
+                                  [0, 0, 0],
+                                  [0, 0, 0]
+                                 ],
+                                 [[0, 1, 0],
+                                  [0, 1, 0],
+                                  [0, 0, 0]
+                                 ],
+                                 [[0, 0, 0],
+                                  [0, 0, 0],
+                                  [0, 0, 0]]]))
+    
+    # Filter 3
+    tip_kernels.append(np.array([[[0, 0, 1],
+                                  [0, 0, 0],
+                                  [0, 0, 0]
+                                 ],
+                                 [[0, 0, 0],
+                                  [0, 1, 0],
+                                  [0, 0, 0]
+                                 ],
+                                 [[0, 0, 0],
+                                  [0, 0, 0],
+                                  [0, 0, 0]]]))
+
+    return tip_kernels
     
 
 def _get_kernels():
