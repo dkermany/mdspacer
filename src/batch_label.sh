@@ -10,15 +10,14 @@ if [ -z "$BONEPATH" ] || [ ! -d "$BONEPATH" ]; then
 fi
 
 # Loop through all .oib files in the BONEPATH
-for file in "$BONEPATH"/*.oib; do
+for file in $BONEPATH/weijie_selected/main_folder/FV10__oibs/*.oib; do
     # Check if there are any .oib files
     if [ -e "$file" ]; then
         echo "Processing file: $file"
 
-        # Your processing commands here
-        # For example: echo "Found file $file"
+	python $ROOTPATH/src/label.py --image $file --ROOTPATH $ROOTPATH --BONEPATH $BONEPATH
     else
-        echo "No .oib files found in $BONEPATH"
+        echo "No .oib files found in $BONEPATH/weijie_selected/main_folder/FV10__oibs/"
         break
     fi
 done

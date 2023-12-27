@@ -50,6 +50,7 @@ cupy-cuda111 = "*"
 napari = "*"
 python-dotenv = "*"
 load-dotenv = "*"
+argparse = "*"
 
 [dev-packages]
 
