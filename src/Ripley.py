@@ -11,6 +11,8 @@ from functools import reduce
 from tqdm import tqdm
 from oiffile import OifFile
 from OifImageViewer import OifImageViewer
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 cache = {}
 
@@ -262,7 +264,162 @@ class Ripley():
         if not isinstance(self.radii, (np.ndarray, list)):
             self.radii = [self.radii]
 
+### Multivariate Ripley Class
 
+class CrossRipley(Ripley):
+    """
+    CrossRipley Class for multivariate spatial point pattern analysis.
+    Inherits from Ripley class.
+    """
+
+    def __init__(
+            self,
+            points_i: np.ndarray,
+            points_j: np.ndarray,
+            radii: list,
+            mask: np.ndarray,
+            boundary_correction: bool = True,
+            disable_progress: bool = True,
+    ):
+        """
+        Initialize a CrossRipley object.
+
+        Args:
+        points_i (np.ndarray): A 2D NumPy array of shape (N, 3) representing the coordinates of points of type 'i' in 3D space.
+        points_j (np.ndarray): A 2D NumPy array of shape (M, 3) representing the coordinates of points of type 'j' in 3D space.
+        radii (list): A list of radii at which to calculate Ripley's K, L, and H functions.
+        mask (np.ndarray): A 3D binary mask representing the study volume.
+        boundary_correction (bool, optional): Whether to apply boundary correction. Defaults to True.
+        """
+        # Call the parent class's __init__ method using super()
+        super().__init__(
+            points_i=points_i,
+            radii=radii,
+            mask=mask,
+            boundary_correction=boundary_correction,
+            disable_progress=disable_progress,
+        )
+
+        # Assign points_j to the self.points_j attribute and validate
+        self.points_j = points_j
+        self._validate_cross_inputs()
+
+        # Create a new tree for points_j
+        self.j_tree = spatial.cKDTree(self.points_j)
+
+
+    def test_ripley(self):
+        self.results = {"K": [], "L": [], "H": []}
+        for r in tqdm(self.radii):
+            self._calc_ripley(r)
+        return list(self.results["K"]), list(self.results["L"]), list(self.results["H"])
+
+    # TODO: Rewrite univariate _calc_ripley function for multivariate case
+    def _calc_ripley(self, radius):
+        """
+        Calculate 3D multivariate Ripley's functions (K_ij, L_ij, H_ij) for a given radius and
+        and apply weight coefficient.
+
+        For each radius, loop through each point_i and count number of point_j within the radius.
+        If boundary_correction is True, calculate the weight coefficient based on the volume of
+        the search sphere within the study volume.
+
+        Args:
+
+            radius (float): the radius for which to calculate Ripley's functions.
+
+        Raises:
+            ValueError: if K/L values are negative.
+
+        Returns:
+            None. Results are stored in self.results.
+
+        """
+        # For each radius, loop through each point and count points
+        # within the radius
+        # print(f"radius = {radius}", flush=True)
+        nb_count = 0
+        running_weights = []
+        running_trees = []
+        for z, y, x in self.points_i:
+            start_time = time.time()
+
+            if self.boundary_correction:
+                weight = self.calculate_weight(radius, (z, y, x))
+                # If weight is zero (i.e. target sphere not in mask), move on
+                if weight == 0:
+                    continue
+            else:
+                weight = 1.0
+
+            end_time = time.time()
+            weight_time = end_time - start_time
+            running_weights.append(1000*weight_time)
+
+            # Since the i point is not included within the j_tree, we do not subtract 1
+            # as done in the univariate implementation
+            
+            start_time = time.time()
+
+            nb_count += (len(self.j_tree.query_ball_point([z, y, x], radius, workers=-1))) / weight
+
+            end_time = time.time()
+            tree_time = end_time - start_time
+            running_trees.append(1000*tree_time)
+
+        # calculating 3D Ripley's functions (K_ij, L_ij, H_ij)
+        N_i = self.points_i.shape[0]
+        N_j = self.points_j.shape[0]
+        K_ij = nb_count * self.study_volume / (N_i * N_j)
+        L_ij = ((3. / 4) * (K_ij / np.pi)) ** (1. / 3)
+        H_ij = L_ij - radius
+        
+        # Verify K/L values positive
+        if K_ij < 0 or L_ij < 0:
+            raise ValueError(f"K/L values should not be negative. nb_count: {nb_count}, volume: {self.volume_shape}, N_i: {N_i}, N_j: {N_j}")
+
+        return (
+            K_ij,
+            L_ij,
+            H_ij,
+            [(radius, sum(running_weights) / len(running_weights), "weights"),
+             (radius, sum(running_trees) / len(running_trees), "trees"),]
+        )
+
+    def _validate_cross_inputs(self):
+        # Check if self.points_j is a list or numpy array
+        if not isinstance(self.points_j, (list, np.ndarray)):
+            e = f"Expected {np.ndarray}, received {type(self.points_j)}"
+            raise ValueError(e)
+
+        # Convert self.points_j to numpy array if it is a list
+        if not isinstance(self.points_j, np.ndarray):
+            self.points_j = np.array(self.points_j)
+
+        # Check if self.points_j array has two dimensions
+        if len(self.points_j.shape) != 2:
+            e = f"Expected self.points_j array to have 2 dimensions, but got array with shape {self.points_j.shape}"
+            raise ValueError(e)
+
+        # Check if the self.points_j array second dimension length is 3 (x, y, z)
+        if self.points_j.shape[1] != 3:
+            e = f"Expected self.points_j array to have shape (None, 3), but got array with shape {self.points_j.shape}"
+            raise ValueError(e)
+
+        # Check if the self.points_j array has at least 3 points
+        if self.points_j.shape[0] < 3:
+            e = f"Expected self.points_j array to have at least 3 points"
+            raise ValueError(e)
+
+        # if only one radius given as int, convert to list
+        if not isinstance(self.radii, (np.ndarray, list)):
+            self.radii = [self.radii]
+
+        # if points are not within volume, raise error
+        for p in [self.points_j]:
+            assert all(x < self.volume_shape[2] for x in p[:, 2])
+            assert all(y < self.volume_shape[1] for y in p[:, 1])
+            assert all(z < self.volume_shape[0] for z in p[:, 0])
 
 def run_ripley(
         points_i: np.ndarray,
