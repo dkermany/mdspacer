@@ -680,26 +680,26 @@ def main(FLAGS):
     # Run univariate comparisons
     for name, points in all_points.items():
         print(f"Running univariate analyses on: {name} points")
-        CSR_rstats = monte_carlo(points, mask, radii, n_samples=100, n_processes=55, boundary_correction=False)
+        random_u_rstats = monte_carlo(points, mask, radii, n_samples=100, n_processes=55, boundary_correction=False)
         u_results = run_ripley(points, points, mask, radii, n_processes=55, boundary_correction=False)
         u_rstats = pd.DataFrame(u_results, columns=["Radius (r)", "K(r)", "L(r)", "H(r)"])
     
         # Uncomment to save rstats to csv
     
-        CSR_rstats.to_csv(os.path.join(FLAGS.output_dir, f"{filename}_random_univariate_{name}_rstats.csv"))
+        random_u_rstats.to_csv(os.path.join(FLAGS.output_dir, f"{filename}_random_univariate_{name}_rstats.csv"))
         u_rstats.to_csv(os.path.join(FLAGS.output_dir, f"{filename}_univariate_{name}_rstats.csv"))
 
     # Run multivariate comparisons with tumor
     for name, points in all_points.items():
         if name != "tumor":
             print(f"Running multivariate analyses between tumor and {name} points")
-            rstats = monte_carlo(tumor_points, mask, radii, points, n_samples=100, n_processes=55, boundary_correction=False)
+            random_m_rstats = monte_carlo(tumor_points, mask, radii, points, n_samples=100, n_processes=55, boundary_correction=False)
             m_results = run_ripley(tumor_points, points, mask, radii, n_processes=55, boundary_correction=False)
             m_rstats = pd.DataFrame(m_results, columns=["Radius (r)", "K(r)", "L(r)", "H(r)"])
     
             # Uncomment to save rstats to csv
-            CSR_rstats.to_csv(os.path.join(FLAGS.output_dir,
-                                           f"{filename}_random_multivariate_{name}_rstats.csv"))
+            random_m_rstats.to_csv(os.path.join(FLAGS.output_dir,
+                                              f"{filename}_random_multivariate_{name}_rstats.csv"))
             m_rstats.to_csv(os.path.join(FLAGS.output_dir, f"{filename}_multivariate_{name}_rstats.csv"))
 
 if __name__ == "__main__":
