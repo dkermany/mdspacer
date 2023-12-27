@@ -699,8 +699,23 @@ def main(FLAGS):
     
             # Uncomment to save rstats to csv
             CSR_rstats.to_csv(os.path.join(FLAGS.output_dir,
-                                           f"{filename}_random_multivariate_{name}_rstats.csv"))
-            m_rstats.to_csv(os.path.join(FLAGS.output_dir, f"{filename}_multivariate_{name}_rstats.csv"))
+                                           f"{filename}_random_multivariate_tumor_{name}_rstats.csv"))
+            m_rstats.to_csv(os.path.join(FLAGS.output_dir,
+                                         f"{filename}_multivariate_tumor_{name}_rstats.csv"))
+
+    # Run multivariate comparisons with ng2 
+    for name, points in all_points.items():
+        if name != "tumor" or name != "ng2":
+            print(f"Running multivariate analyses between ng2 and {name} points")
+            rstats = monte_carlo(ng2_points, mask, radii, points, n_samples=100, n_processes=55, boundary_correction=False)
+            m_results = run_ripley(ng2_points, points, mask, radii, n_processes=55, boundary_correction=False)
+            m_rstats = pd.DataFrame(m_results, columns=["Radius (r)", "K(r)", "L(r)", "H(r)"])
+    
+            # Uncomment to save rstats to csv
+            CSR_rstats.to_csv(os.path.join(FLAGS.output_dir,
+                                           f"{filename}_random_multivariate_ng2_{name}_rstats.csv"))
+            m_rstats.to_csv(os.path.join(FLAGS.output_dir,
+                                         f"{filename}_multivariate_ng2_{name}_rstats.csv"))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
