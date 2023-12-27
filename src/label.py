@@ -16,7 +16,6 @@ import cc3d
 import dijkstra3d
 import itertools
 import argparse
-from dotenv import load_dotenv
 from skimage.morphology import skeletonize_3d
 from cupyimg.scipy.ndimage.morphology import binary_hit_or_miss
 from tqdm import tqdm
