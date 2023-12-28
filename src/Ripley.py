@@ -677,35 +677,36 @@ def main(FLAGS):
     
     radii = np.arange(2, 100) 
     
-    # Run univariate comparisons
-    for name, points in all_points.items():
-        print(f"Running univariate analyses on: {name} points")
-        random_u_rstats = monte_carlo(points, mask, radii, n_samples=100, n_processes=55, boundary_correction=False)
-        u_results = run_ripley(points, points, mask, radii, n_processes=55, boundary_correction=False)
-        u_rstats = pd.DataFrame(u_results, columns=["Radius (r)", "K(r)", "L(r)", "H(r)"])
-    
-        # Uncomment to save rstats to csv
-    
-        random_u_rstats.to_csv(os.path.join(FLAGS.output_dir, f"{filename}_random_univariate_{name}_rstats.csv"))
-        u_rstats.to_csv(os.path.join(FLAGS.output_dir, f"{filename}_univariate_{name}_rstats.csv"))
+    ## Run univariate comparisons
+    #for name, points in all_points.items():
+    #    print(f"Running univariate analyses on: {name} points")
+    #    random_u_rstats = monte_carlo(points, mask, radii, n_samples=100, n_processes=55, boundary_correction=False)
+    #    u_results = run_ripley(points, points, mask, radii, n_processes=55, boundary_correction=False)
+    #    u_rstats = pd.DataFrame(u_results, columns=["Radius (r)", "K(r)", "L(r)", "H(r)"])
+    #
+    #    # Uncomment to save rstats to csv
+    #
+    #    random_u_rstats.to_csv(os.path.join(FLAGS.output_dir, f"{filename}_random_univariate_{name}_rstats.csv"))
+    #    u_rstats.to_csv(os.path.join(FLAGS.output_dir, f"{filename}_univariate_{name}_rstats.csv"))
 
     # Run multivariate comparisons with tumor
-    for name, points in all_points.items():
-        if name != "tumor":
-            print(f"Running multivariate analyses between tumor and {name} points")
-            random_m1_rstats = monte_carlo(tumor_points, mask, radii, points, n_samples=100, n_processes=55, boundary_correction=False)
-            m1_results = run_ripley(tumor_points, points, mask, radii, n_processes=55, boundary_correction=False)
-            m1_rstats = pd.DataFrame(m1_results, columns=["Radius (r)", "K(r)", "L(r)", "H(r)"])
-    
-            # Uncomment to save rstats to csv
-            random_m1_rstats.to_csv(os.path.join(FLAGS.output_dir,
-                                                 f"{filename}_random_multivariate_tumor_{name}_rstats.csv"))
-            m1_rstats.to_csv(os.path.join(FLAGS.output_dir,
-                                          f"{filename}_multivariate_tumor_{name}_rstats.csv"))
+    if filename != "FV10__20181004_122358":
+        for name, points in all_points.items():
+            if name != "tumor":
+                print(f"Running multivariate analyses between tumor and {name} points")
+                random_m1_rstats = monte_carlo(tumor_points, mask, radii, points, n_samples=100, n_processes=55, boundary_correction=False)
+                m1_results = run_ripley(tumor_points, points, mask, radii, n_processes=55, boundary_correction=False)
+                m1_rstats = pd.DataFrame(m1_results, columns=["Radius (r)", "K(r)", "L(r)", "H(r)"])
+        
+                # Uncomment to save rstats to csv
+                random_m1_rstats.to_csv(os.path.join(FLAGS.output_dir,
+                                                     f"{filename}_random_multivariate_tumor_{name}_rstats.csv"))
+                m1_rstats.to_csv(os.path.join(FLAGS.output_dir,
+                                              f"{filename}_multivariate_tumor_{name}_rstats.csv"))
 
     # Run multivariate comparisons with ng2 
     for name, points in all_points.items():
-        if name != "tumor" or name != "ng2":
+        if name != "tumor" and name != "ng2":
             print(f"Running multivariate analyses between ng2 and {name} points")
             random_m2_rstats = monte_carlo(ng2_points, mask, radii, points, n_samples=100, n_processes=55, boundary_correction=False)
             m2_results = run_ripley(ng2_points, points, mask, radii, n_processes=55, boundary_correction=False)
