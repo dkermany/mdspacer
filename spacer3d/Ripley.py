@@ -10,7 +10,7 @@ from scipy import spatial, stats
 from functools import reduce
 from tqdm import tqdm
 from oiffile import OifFile
-from OifImageViewer import OifImageViewer
+from src.OifImageViewer import OifImageViewer
 import matplotlib.pyplot as plt
 import seaborn as sns
 
