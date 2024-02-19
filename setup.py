@@ -1,37 +1,33 @@
-import os
+from setuptools import setup, find_packages
 
-def find_root_path(current_path, marker='.git'):
-    while not os.path.exists(os.path.join(current_path, marker)):
-        current_path, _ = os.path.split(current_path)
-        if current_path == '':
-            raise FileNotFoundError("Could not find the marker")
-    return current_path
-
-def read_env_file(file_path):
-    """Read a .env file and return its contents as a dictionary."""
-    env_vars = {}
-    with open(file_path, 'r') as file:
-        for line in file:
-            if line.startswith('#') or not line.strip():
-                continue
-            key, value = line.strip().split('=', 1)
-            env_vars[key] = value
-    return env_vars
-
-def write_env(file_path, env_vars):
-    """Write a dictionary of environment variables to a .env file."""
-    with open(file_path, 'w') as file:
-        for key, value in env_vars.items():
-            file.write(f'{key}={value}\n')
-
-if __name__ == "__main__":
-    root_path = find_root_path(__file__)
-
-    env_path = os.path.join(root_path, ".env")
-    env_vars = read_env_file(env_path)
-    env_vars["ROOTPATH"] = root_path
-    env_vars["BONEPATH"] = "/data/dkermany_data/Bone_Project/"
-
-    # Write the changes back to the .env file
-    write_env(env_path, env_vars)
+setup(
+    name='spacer3d',
+    version='0.1.0',
+    packages=find_packages(),
+    description='3D Spatial Pattern Analysis with Comparable and Extendable Ripley’s K',
+    long_description=open('README.md').read(),
+    long_description_content_type='text/markdown',
+    author='dkermany',
+    url='https://github.com/dkermany/spacer3d',
+    install_requires=[
+        # Any dependencies your project needs, e.g.,
+        'numpy>=1.26.4',
+        'matplotlib>=3.8.2',
+        'ipympl>=0.9.3',
+        'seaborn>=0.13.2',
+        'pandas>=2.2.0',
+        'scipy>=1.12.0',
+        'tqdm>=4.66.2',
+        'pynrrd>=1.0.0',
+        'raster_geometry>=0.1.4.2',
+        'oiffile>=2023.8.30',
+        'tifffile>=2024.2.12',
+    ],
+    classifiers=[
+        'Programming Language :: Python :: 3',
+        'License :: OSI Approved :: MIT License',
+        'Operating System :: OS Independent',
+    ],
+    python_requires='>=3.9',
+)
 

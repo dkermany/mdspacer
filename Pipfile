@@ -41,9 +41,7 @@ pyside6 = "*"
 ipyvolume = "*"
 line-profiler = "*"
 scipy = "*"
-torch = {index = "downloadpytorch", version = "==1.11.0+cu113"}
 keras = "*"
-# fast-upfirdn = "*"
 connected-components-3d = "*"
 dijkstra3d = "*"
 cupy-cuda111 = "*"
@@ -53,6 +51,11 @@ load-dotenv = "*"
 argparse = "*"
 
 [dev-packages]
+ipykernel = "*"
 
 [requires]
 python_version = "3.9"
+
+[packages.torch]
+index = "downloadpytorch"
+version = "==1.11.0+cu113"
