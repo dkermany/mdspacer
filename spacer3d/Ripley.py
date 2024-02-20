@@ -102,9 +102,9 @@ class Ripley():
         Initialize a Ripley object.
 
         Args:
-        points_i (np.ndarray): A 2D NumPy array of shape (N, 3) representing the coordinates of N points in 3D space.
+        points_i (np.ndarray): A 2D NumPy array of shape (N, 3) for 3D and (N, 2) for 2D representing the coordinates of N points in space.
         radii (list): A list of radii at which to calculate Ripley's K, L, and H functions.
-        mask (np.ndarray): A 3D binary mask representing the study volume.
+        mask (np.ndarray): A binary mask representing the study volume.
         boundary_correction (bool, optional): Whether to apply boundary correction. Defaults to True.
         disable_progress (bool, optional): Whether to disable progress bar. Defaults to True.
         """
@@ -426,7 +426,7 @@ def run_ripley(
         points_j: np.ndarray,
         mask: np.ndarray,
         radii: np.ndarray,
-        boundary_correction: bool = True,
+        boundary_correction: bool = False,
         n_processes: int = 32,
         n_line: int = None,
         disable_progress: bool = True) -> list:
@@ -655,6 +655,32 @@ def load_OIB(path):
         if viewer.md["z_unit"] == "nm":
             z_step /= 1000.
     return filename, viewer, (x_step, y_step, z_step)
+
+# TODO Test function
+def calculate_ripleyK_p_values(observed_ripleyK, simulated_ripleyKs):
+    """
+    Calculate p-values for Ripley's K function at each radius.
+
+    Parameters:
+    observed_ripleyK (array-like): An array of Ripley's K values calculated from the observed data for each radius.
+    simulated_ripleyKs (array-like of array-like): A 2D array where each row represents the Ripley's K values 
+                                                    from a single Monte Carlo simulation across the same radii as the observed data.
+
+    Returns:
+    np.array: An array of p-values for each radius.
+    """
+    # Initialize an array to hold p-values for each radius
+    p_values = np.zeros_like(observed_ripleyK)
+
+    # Calculate p-value for each radius
+    for i in range(len(observed_ripleyK)):
+        # For each radius, count how many simulated Ripley's K values are as extreme as or more extreme than the observed value
+        extreme_count = np.sum(simulated_ripleyKs[:, i] >= observed_ripleyK[i])
+        
+        # Calculate the p-value as the proportion of simulations that are as or more extreme than the observed
+        p_values[i] = extreme_count / simulated_ripleyKs.shape[0]
+
+    return p_values
 
 def main(FLAGS):
     filename, viewer, steps = load_OIB(FLAGS.oib_path)
