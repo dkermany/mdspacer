@@ -131,7 +131,7 @@ class Ripley():
 
     def run(self, n_processes=32):
         """
-        Run Ripley's analysis for the specified r        print("waiting...")adii.
+        Run Ripley's analysis for the specified radii.
 
         Args:
         n_processes (int, optional): Number of processes to use for parallel computation. Defaults to 32.

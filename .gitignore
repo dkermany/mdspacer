@@ -1,4 +1,5 @@
 # Custom
+*.mp4
 *.tif
 *.tiff
 checkpoints/*

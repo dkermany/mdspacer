@@ -22,6 +22,7 @@ setup(
         'raster_geometry>=0.1.4.2',
         'oiffile>=2023.8.30',
         'tifffile>=2024.2.12',
+        'opencv-python>=4.9.0.80'
     ],
     classifiers=[
         'Programming Language :: Python :: 3',
