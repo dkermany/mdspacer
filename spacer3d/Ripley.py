@@ -656,8 +656,7 @@ def load_OIB(path):
             z_step /= 1000.
     return filename, viewer, (x_step, y_step, z_step)
 
-# TODO Test function
-def calculate_ripleyK_p_values(observed_ripleyK, simulated_ripleyKs):
+def calculate_pvalues(observed_ripleyK, simulated_ripleyKs):
     """
     Calculate p-values for Ripley's K function at each radius.
 
