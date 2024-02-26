@@ -28,6 +28,26 @@ def load_mask(path):
 
     return mask
 
+def euclidean_distance(point1, point2):
+    """
+    Calculate the Euclidean distance between two points.
+
+    Args:
+    point1 (array-like): An array-like object representing the first point.
+    point2 (array-like): An array-like object representing the second point.
+
+    Returns:
+    float: The Euclidean distance between the two points.
+    """
+    # Use NumPy's linalg.norm function to calculate the Euclidean distance
+    return np.linalg.norm(point1-point2)
+
+def set_aspect_ratio_equal(ax) -> None:
+    xlim = ax.get_xlim3d()
+    ylim = ax.get_ylim3d()
+    zlim = ax.get_zlim3d()
+    ax.set_box_aspect((xlim[1]-xlim[0], ylim[1]-ylim[0], zlim[1]-zlim[0]))
+
 def get_sphere_mask_intersection(
         mask: np.ndarray,
         radius: int,

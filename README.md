@@ -11,14 +11,14 @@
 <!-- PROJECT LOGO -->
 <div align="center">
 
-  <h3 align="center">PySpatial3D</h3>
+  <h3 align="center">SPACER-3D</h3>
 
   <p align="center">
-    A library for the spatial analyses of 3D fluorescence images
+    <u>S</u>patial <u>P</u>attern <u>A</u>nalysis with <u>C</u>omparable and <u>E</u>xtendable <u>R</u>ipley’s K 
     <br />
-    <a href="https://github.com/dkermany/PySpatial3D/issues">Report Bug</a>
+    <a href="https://github.com/dkermany/spacer3d/issues">Report Bug</a>
     ·
-    <a href="https://github.com/dkermany/PySpatial3D/issues">Request Feature</a>
+    <a href="https://github.com/dkermany/spacer3d/issues">Request Feature</a>
   </p>
   
   <img src="img/cover-photo.gif">
@@ -27,9 +27,9 @@
 <!-- TABLE OF CONTENTS -->
 ## Table of Contents
 <ol>
-  <li>
+  <!-- <li>
     <a href="#project-overview">About The Project</a>
-  </li>
+  </li> -->
   <li>
     <a href="#getting-started">Getting Started</a>
     <ul>
@@ -42,13 +42,13 @@
 </ol>
 
 <!-- ABOUT THE PROJECT -->
-## Project Overview
+<!-- ## Project Overview
 
 ### Objectives
 
 Determine if there is any morphological changes to bone blood vessels in the vicinity of identified metastasized breast cancer cells, as well as any 3D spatial relationships between NG2+ stromal cells and disseminated tumor cells.
 
-<p align="right">(<a href="#top">back to top</a>)</p>
+<p align="right">(<a href="#top">back to top</a>)</p> -->
 
 <!-- ROADMAP -->
 <!-- ## Roadmap
