@@ -63,29 +63,24 @@ Libraries and environment setup using the <a href="https://pipenv.pypa.io/en/lat
 
 ### Prerequisites
 
+Clone repository
+  ```sh
+  git clone git@github.com:dkermany/spacer3d.git
+  ```
+
+Install library (virtualenv recommended)
+  ```sh
+  # After navigating to root directory (where setup.py is)
+  pip install -e .
+  ```
+
 Install dependencies
   ```sh
   pipenv install --dev
   ```
 <!-- USAGE EXAMPLES -->
 ## Usage
-Jupyter Notebook from local
-```sh
-  # on local machine terminal
-  jupyter-notebook
-  ```
 
-Jupyter Notebook from server
-```sh
-  # on server terminal
-  jupyter-notebook --no-browser --port 7777
-  
-  # on local terminal
-  # create ssh tunnel on port 7777
-  ssh -NfL 7777:localhost:7777 username@serveraddress
-  
-  # open local browser and navigate to `localhost:7777` to see jupyter notebook
-  ```
 <p align="right">(<a href="#top">back to top</a>)</p>
 
 <!-- CONTRIBUTING -->
