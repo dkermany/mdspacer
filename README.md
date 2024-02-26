@@ -126,6 +126,22 @@ Install dependencies
     rstats.to_csv(os.path.join(output_dir, f"{filename}_univariate_rstats.csv"))
   ```
 
+  Plot individuals
+  ```python
+  plot_individuals(path_to_rstats_folder)
+  combined_plot_univariate(path_to_rstats_folder)
+  combined_plot_multivariate(path_to_rstats_folder)
+  ```
+
+  Plot combined_univariate
+  ```python
+  combined_plot_univariate(path_to_rstats_folder)
+  ```
+
+  Plot combined_multivariate
+  ```python
+  combined_plot_multivariate(path_to_rstats_folder)
+  ```
 <p align="right">(<a href="#top">back to top</a>)</p>
 
 <!-- CONTRIBUTING -->
