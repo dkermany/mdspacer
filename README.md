@@ -80,6 +80,51 @@ Install dependencies
   ```
 <!-- USAGE EXAMPLES -->
 ## Usage
+  Import
+  ```python
+  from spacer3d.Ripley import CrossRipley, run_ripley 
+  ```
+
+  Load points [(N, 3) shape for 3D, (N, 2) for 2D]
+  Random points in this example
+  ```python
+  random_set1 = stats.uniform.rvs(loc=0, scale=100, size=(100,3))
+  random_set2 = stats.uniform.rvs(loc=0, scale=100, size=(100,3))
+"""
+ >   [  35.  668. 1928.]
+ >   [  26. 1294. 2030.]
+ >   [  26. 1243. 1731.]
+ >   [  13.  752.  823.]
+ >   [   4. 1226. 1690.]
+ >   [   0. 1351. 2243.]
+ >           ...
+ """
+  ```
+
+  Set parameters
+  ```python
+  # Search radii
+  radii=np.arange(2, 67) 
+
+  # Binary mask to define sample space
+  volume_mask = np.ones((100, 100, 100))
+
+  # Number of Monte Carlo simulations to run
+  n_samples = 5
+  ```
+
+  Run SPACER-3D K Function
+  ```python
+    rand_rstats = monte_carlo(points, mask, radii, n_samples=100, n_processes=55, boundary_correction=False)
+    results = run_ripley(points, points, mask, radii, n_processes=55, boundary_correction=False)
+    rstats = pd.DataFrame(results, columns=["Radius (r)", "K(r)", "L(r)", "H(r)"])
+  ```
+
+  Save rstats DataFrames to CSV files for caching and plotting
+  ```python
+    rand_rstats.to_csv(f"/home/dkermany/ripley_results/{filename}_random_univariate_rstats.csv")
+    rstats.to_csv(os.path.join(output_dir, f"{filename}_univariate_rstats.csv"))
+  ```
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
