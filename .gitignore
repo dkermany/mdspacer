@@ -9,6 +9,7 @@ checkpoints/*
 tensorboard/*
 masks/
 BoneMets_points/
+ripley_results/
 
 
 # Byte-compiled / optimized / DLL files

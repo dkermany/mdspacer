@@ -10,9 +10,10 @@ from scipy import spatial, stats
 from functools import reduce
 from tqdm import tqdm
 from oiffile import OifFile
-from spacer3d.OifImageViewer import OifImageViewer
 import matplotlib.pyplot as plt
 import seaborn as sns
+
+from spacer3d.OifImageViewer import OifImageViewer
 
 cache = {}
 
@@ -27,20 +28,6 @@ def load_mask(path):
     print("Axes: ZYX")
 
     return mask
-
-def euclidean_distance(point1, point2):
-    """
-    Calculate the Euclidean distance between two points.
-
-    Args:
-    point1 (array-like): An array-like object representing the first point.
-    point2 (array-like): An array-like object representing the second point.
-
-    Returns:
-    float: The Euclidean distance between the two points.
-    """
-    # Use NumPy's linalg.norm function to calculate the Euclidean distance
-    return np.linalg.norm(point1-point2)
 
 def set_aspect_ratio_equal(ax) -> None:
     xlim = ax.get_xlim3d()
