@@ -79,7 +79,7 @@ Install dependencies
   pipenv install --dev
   ```
 <!-- USAGE EXAMPLES -->
-## Usage
+### Usage
   Import
   ```python
   from spacer3d.Ripley import CrossRipley, run_ripley 
@@ -142,6 +142,11 @@ Install dependencies
   ```python
   combined_plot_multivariate(path_to_rstats_folder)
   ```
+
+### Bone Metastasis Data
+  <a href="https://drive.google.com/drive/folders/1X8yfHktQ513SK646tZ_oU5vIuKeu-0Hr?usp=sharing">Masks</a>
+  <a href="https://drive.google.com/drive/folders/1BghqrDwZf6uf0CWKvw_sbw2kMEFznNtq?usp=sharing">Point Data</a>
+
 <p align="right">(<a href="#top">back to top</a>)</p>
 
 <!-- CONTRIBUTING -->

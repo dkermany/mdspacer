@@ -116,7 +116,7 @@ class Ripley():
             radii: list,
             mask: np.ndarray,
             boundary_correction: bool = True,
-            disable_progress: bool = True,
+            disable_progress: bool = False,
     ):
         """
         Initialize a Ripley object.
@@ -126,7 +126,7 @@ class Ripley():
         radii (list): A list of radii at which to calculate Ripley's K, L, and H functions.
         mask (np.ndarray): A binary mask representing the study volume.
         boundary_correction (bool, optional): Whether to apply boundary correction. Defaults to True.
-        disable_progress (bool, optional): Whether to disable progress bar. Defaults to True.
+        disable_progress (bool, optional): Whether to disable progress bar. Defaults to False.
         """
         self.points_i = points_i
         self.radii = radii
@@ -299,7 +299,7 @@ class CrossRipley(Ripley):
             radii: list,
             mask: np.ndarray,
             boundary_correction: bool = True,
-            disable_progress: bool = True,
+            disable_progress: bool = False,
     ):
         """
         Initialize a CrossRipley object.
@@ -449,7 +449,7 @@ def run_ripley(
         boundary_correction: bool = False,
         n_processes: int = 32,
         n_line: int = None,
-        disable_progress: bool = True) -> list:
+        disable_progress: bool = False) -> list:
     """
     Execute the Ripley's K-function analysis for two sets of points within a specified mask.
 
@@ -465,11 +465,11 @@ def run_ripley(
     boundary_correction (bool, optional): Whether to apply boundary correction. Defaults to True.
     n_processes (int, optional): The number of processes to use for computation. Defaults to 1.
     n_line (int, optional): An additional parameter to include in the results, if provided.
-    disable_progress (bool, optional): Set to False to disable tqdm progress bar for Ripley calculations
+    disable_progress (bool, optional): Set to True to disable tqdm progress bar for Ripley calculations
 
     Returns:
-    list of tuples: Each tuple contains the radius, K-function value, L-function value, 
-                    H-function value, and optionally the n_line value, sorted by radii.
+    pd.DataFrame: A DataFrame that contains the radius, K-function value, L-function value, 
+                  H-function value, and optionally the n_line value, sorted by radii.
     """
     # Initialize the CrossRipley object with the provided points, radii, mask, and boundary correction setting.
     # This object will be used to run Ripley's K-function analysis.
@@ -490,12 +490,14 @@ def run_ripley(
     # Organize the results into a structured format for easy interpretation.
     # If n_line is specified, it is included in each tuple; otherwise, only K, L, and H values are included.
     # The comprehension iterates over zipped K, L, H tuples and constructs a result tuple for each set of values.
-    results = [(r, k, l, h, n_line) if n_line else (r, k, l, h) 
+    rstats = [(r, k, l, h, n_line) if n_line else (r, k, l, h) 
                for k, l, h, r in zip(K, L, H, radii)]
 
     # print("Plot performance")
     # ripley.plot_performance(metrics)
 
+    columns = ["Radius (r)", "K(r)", "L(r)", "H(r)"] + ["Line"] if n_line else []
+    results = pd.DataFrame(rstats, columns=columns)
     # Return the organized list of tuples as the function's result.
     return results
 
@@ -506,7 +508,7 @@ def monte_carlo(
         points_j=None,
         n_samples=5,
         boundary_correction=True,
-        disable_progress=True,
+        disable_progress=False,
         n_processes=32
 ):
     """
@@ -576,11 +578,10 @@ def monte_carlo(
 
     # Initialize an empty list to store results
     CSR_results = []
-    for n_line in tqdm(range(n_samples), disable=not disable_progress):
+    for n_line in tqdm(range(n_samples), disable=disable_progress):
 
         if not disable_progress:
             print(f"Simulation: {n_line}/{n_samples}")
-
 
         # Univariate
         if points_j is None:
@@ -594,7 +595,6 @@ def monte_carlo(
                 n_line=n_line,
                 disable_progress=disable_progress
             )
-
 
         # Multivariate
         else:
