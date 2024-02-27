@@ -147,9 +147,9 @@ Install dependencies
   ```
 
 ### Bone Metastasis Data
-  Binary masks [(Link)](https://drive.google.com/drive/folders/1X8yfHktQ513SK646tZ_oU5vIuKeu-0Hr?usp=sharing)
-  Point data [(Link)](https://drive.google.com/drive/folders/1BghqrDwZf6uf0CWKvw_sbw2kMEFznNtq?usp=sharing)
-  Example results [(Link)](https://drive.google.com/drive/folders/19Z7xVW3ONVCFWiFHoqCjIoGpvcSV4vBg?usp=sharing)
+  Binary masks [(Link)](https://drive.google.com/drive/folders/1X8yfHktQ513SK646tZ_oU5vIuKeu-0Hr?usp=sharing)  
+  Point data [(Link)](https://drive.google.com/drive/folders/1BghqrDwZf6uf0CWKvw_sbw2kMEFznNtq?usp=sharing)  
+  Example results [(Link)](https://drive.google.com/drive/folders/19Z7xVW3ONVCFWiFHoqCjIoGpvcSV4vBg?usp=sharing)  
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
