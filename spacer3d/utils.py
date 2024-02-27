@@ -4,10 +4,39 @@ import cupy as cp
 import seaborn as sns
 import pandas as pd
 from glob import glob
+from scipy import stats
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import os
+
+def calculate_pi(data, p=0.95):
+    """
+    Calculate the 95% prediction interval for the given data.
+
+    Parameters:
+    data (array-like): A list or array of numerical data points.
+
+    Returns:
+    dict: Lower and upper bounds of the 95% prediction interval.
+    """
+    # Calculate mean and standard error of the mean
+    mean = np.mean(data)
+    std = np.std(data, ddof=1)
+
+    # Number of observations
+    n = len(data)
+
+    bounds = {}
+    for conf in [0.95, 0.99, 0.999]:
+        t_score = stats.t.ppf((1 + conf) / 2., n-1)
+        margin_of_error = t_score * std * np.sqrt(1 + 1/n)
+        bounds[str(conf)] = {
+            "lower": mean - margin_of_error,
+            "upper": mean + margin_of_error,
+        }
+
+    return bounds
 
 def calculate_percentile_range(data):
     """
@@ -163,6 +192,35 @@ def plot_background_intervals(df, color, ax):
     # Filling from the top of the graph to the topmost line
     ax.fill_between(radii, upper, ymax, color=get_equivalent_color(color, 0.2))
     return mpatches.Patch(color=get_equivalent_color(color, 0.2), label=f">99.99% Interval")
+
+def normalize(rstats, rand_rstats):
+    def min_max(data, min_val, max_val):
+        """
+        Normalize the data to have a lower bound of -1 and upper bound of 1
+        with respect to the 95% interval min and max values
+    
+        Parameters:
+        data (array-like): A list or array of numerical data points.
+        min_val (float): min value
+        max_val (float): max value
+    
+        Returns:
+        array: Normalized data with bounds [-1, 1].
+        """
+        normalized_data = 2 * ((data - min_val) / (max_val - min_val)) - 1
+        return normalized_data
+
+    normalized_K = []
+    for radius in rstats["Radius (r)"]:
+        subset = rand_rstats[rand_rstats["Radius (r)"] == radius]["K(r)"].tolist()
+        bounds = calculate_pi(subset)
+        lower_bound_95, upper_bound_95 = bounds["0.95"]["lower"], bounds["0.95"]["upper"]
+        if abs(lower_bound_95 - upper_bound_95) < 1:
+            val = 0.
+        else:
+            val = min_max(rstats[rstats["Radius (r)"] == radius]["K(r)"].tolist()[0], lower_bound_95, upper_bound_95)
+        normalized_K.append(val)
+    return normalized_K
 
 def normalize_w_intervals(rstats, rand_rstats):
     def min_max(data, min_val, max_val):
