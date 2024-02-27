@@ -369,11 +369,11 @@ def plot_process(rstats_path, save=False, output_folder="./ripley_plots"):
     plt.rcParams.update({"font.size": 16})
     
     # Create a subplot with 3 rows and 1 column
-    f, axes = plt.subplots(1,4, sharex=True, figsize=(19,6))
+    f, axes = plt.subplots(len(u_rstats_files), 4, sharex=True, figsize=(19,6))
     for ax in axes:
         ax.tick_params(axis="both", labelsize="16")
-    f.tight_layout(pad=1.4)
 
+    f.tight_layout(pad=1.4)
     f.supxlabel("Radius (μm)", y=0.00)
     f.subplots_adjust(bottom=0.12)
     
@@ -388,7 +388,7 @@ def plot_process(rstats_path, save=False, output_folder="./ripley_plots"):
         # Load the CSV file and random CSV file into DataFrames
         rstats = pd.read_csv(fullpath)
         rand_rstats = pd.read_csv(rand_fullpath)
-        plot(rstats, rand_rstats, ax=axes)
+        plot(rstats, rand_rstats, ax=axes[i])
 
         if save:
             create_directory(output_folder)
