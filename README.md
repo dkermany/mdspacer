@@ -80,6 +80,9 @@ Install dependencies
   ```
 <!-- USAGE EXAMPLES -->
 ### Usage
+  - [Link to Ripley's K tutorial](ipynb/spacer3d.ipynb)
+  - [Link to visualization tutorial](ipynb/plot_rstats.ipynb) 
+
   Import
   ```python
   from spacer3d.Ripley import CrossRipley, run_ripley 
@@ -144,8 +147,9 @@ Install dependencies
   ```
 
 ### Bone Metastasis Data
-  <a href="https://drive.google.com/drive/folders/1X8yfHktQ513SK646tZ_oU5vIuKeu-0Hr?usp=sharing">Masks</a>
-  <a href="https://drive.google.com/drive/folders/1BghqrDwZf6uf0CWKvw_sbw2kMEFznNtq?usp=sharing">Point Data</a>
+  Binary masks <a href="https://drive.google.com/drive/folders/1X8yfHktQ513SK646tZ_oU5vIuKeu-0Hr?usp=sharing">(Link)</a>
+  Point data <a href="https://drive.google.com/drive/folders/1BghqrDwZf6uf0CWKvw_sbw2kMEFznNtq?usp=sharing">(Link)</a>
+  Example results <a href="https://drive.google.com/drive/folders/19Z7xVW3ONVCFWiFHoqCjIoGpvcSV4vBg?usp=sharing">(Link)</a>
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
