@@ -496,7 +496,7 @@ def run_ripley(
     # print("Plot performance")
     # ripley.plot_performance(metrics)
 
-    columns = ["Radius (r)", "K(r)", "L(r)", "H(r)"] + ["Line"] if n_line else []
+    columns = ["Radius (r)", "K(r)", "L(r)", "H(r)"] + (["Line"] if n_line else [])
     results = pd.DataFrame(rstats, columns=columns)
     # Return the organized list of tuples as the function's result.
     return results
