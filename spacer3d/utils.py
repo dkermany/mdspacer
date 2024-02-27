@@ -324,7 +324,7 @@ def _config_legend(patches, ax):
 
     ax.legend(handles=all_handles, labels=all_labels, loc="upper left", fontsize="12")
 
-def plot_process(rstats_path):
+def plot_process(rstats_path, save=False, output_folder="./ripley_plots"):
     # palette = sns.color_palette("colorblind")
     palette = sns.color_palette("rocket_r")
     # palette = sns.color_palette("husl", 4)
@@ -364,23 +364,20 @@ def plot_process(rstats_path):
     rstats_files = [os.path.splitext(os.path.basename(f))[0] for f in rstats_files if "random" not in f]
     u_rstats_files = [f for f in rstats_files if "univariate" in f]
     m_rstats_files = [f for f in rstats_files if "multivariate" in f]
-    #plot_ripley(rstats, rand_rstats, ax=axes[i,j], title=title[j])
 
     # Update the font size for the plot
     plt.rcParams.update({"font.size": 16})
     
     # Create a subplot with 3 rows and 1 column
     f, axes = plt.subplots(1,4, sharex=True, figsize=(19,6))
-    # f.add_subplot(111, frameon=False)
     for ax in axes:
         ax.tick_params(axis="both", labelsize="16")
     f.tight_layout(pad=1.4)
 
     f.supxlabel("Radius (μm)", y=0.00)
     f.subplots_adjust(bottom=0.12)
-    # f.supylabel("K$_{Norm}$", x=0.00)
     
-    for i, filename in enumerate(u_rstats_files[12:]):
+    for i, filename in enumerate(u_rstats_files):
         fullpath = os.path.join(rstats_path, f"{filename}.csv")
         
         prefix, _, date, id, mode, label, _ = filename.split("_")
@@ -391,11 +388,11 @@ def plot_process(rstats_path):
         # Load the CSV file and random CSV file into DataFrames
         rstats = pd.read_csv(fullpath)
         rand_rstats = pd.read_csv(rand_fullpath)
-        print(fullpath, rand_fullpath)
         plot(rstats, rand_rstats, ax=axes)
-        print(rstats)
-        # plt.savefig("/Users/danielkermany/Desktop/Figure5_bcde.svg")#, bbox_inches="tight")
-        break
+
+        if save:
+            create_directory(output_folder)
+            plt.savefig(os.path.join(output_folder, f"{filename}.svg"))
         
 def plot_individuals(rstats_path):
     palette = sns.color_palette("rocket_r")
@@ -436,7 +433,6 @@ def plot_individuals(rstats_path):
     # Loop over each univariate filename
     for i, group in enumerate(grouped_u_rstats_files[4:]):
         for j, filename in enumerate(group):
-            print(filename)
             # Construct the path for the CSV file
             fullpath = os.path.join(rstats_path, f"{filename}.csv")
             
@@ -444,7 +440,6 @@ def plot_individuals(rstats_path):
             
             # Construct the path for the random CSV file
             rand_fullpath = os.path.join(rstats_path, f"FV10__{date}_{id}_random_{mode}_{label}_rstats.csv")
-            print(rand_fullpath)
     
             # Load the CSV file and random CSV file into DataFrames
             rstats = pd.read_csv(fullpath)
@@ -534,9 +529,7 @@ def _draw_combined_graph(df, title=None):
     min_val = min(df["K_norm"])
     
     new_ylims = (min(-1-(0.05*max_val), min_val), max(1+(0.05*max_val), max_val))  # This includes both your data and the -1 to 1 interval
-    # print(rstats)
-    # pprint(rand_rstats["K(r)"].tolist())
-    print("new ylims", new_ylims)
+    #print("new ylims", new_ylims)
     ax.set_ylim(new_ylims)
 
     plt.legend(prop={'size': 14})  # Set the font size to 10
@@ -569,7 +562,6 @@ def plot_combined_univariate(rstats_path):
         df = pd.DataFrame()
         df["Radius (r)"] = pd.Series(np.arange(2,100))
         for i, filename in enumerate(t_files):
-            # print(filename)
             # Construct the path for the CSV file
             fullpath = os.path.join(rstats_path, f"{filename}.csv")
             prefix, _, date, id, mode, label, _ = filename.split("_")
@@ -587,8 +579,6 @@ def plot_combined_univariate(rstats_path):
         df['Average'] = df.drop('Radius (r)', axis=1).mean(axis=1)
         df_long = pd.melt(df, id_vars=["Radius (r)"], value_vars=["Average"]+[f"Sample {i+1}" for i in range(8)],
                           var_name="Sample", value_name="K_norm")
-        # print(df_long)
-        print(t)
         _draw_combined_graph(df_long, title=t)
 
 def plot_combined_multivariate(rstats_path):
@@ -614,19 +604,15 @@ def plot_combined_multivariate(rstats_path):
     types = ["ng2", "branch", "tvc"]
     titles = ["Tumor-NG2 Relationship", "Tumor-Branch Relationship", "Tumor-Tortuous Vessel Relationship", "NG2-Branch Relationship",
               "NG2-Tortuous Vessel Relationship"]
-    # pprint(m_rstats_files)
     i_cnt = 0
     for a in anchor:
         for t in types:
             if a != t: 
                 a_files = [i for i in m_rstats_files if a in i and t in i]
-                # pprint(a_files)
-                # break
 
                 df = pd.DataFrame()
                 df["Radius (r)"] = pd.Series(np.arange(2,100))
                 for i, filename in enumerate(a_files):
-                    # print(filename)
                     # Construct the path for the CSV file
                     fullpath = os.path.join(rstats_path, f"{filename}.csv")
                     prefix, _, date, id, mode, anchor, target, _ = filename.split("_")
@@ -642,17 +628,9 @@ def plot_combined_multivariate(rstats_path):
                     df[f"Sample {i+1}"] = pd.Series(K_norm)
 
                 df['Average'] = df.drop('Radius (r)', axis=1).mean(axis=1)
-                # print(df)
-                # for r in df["Radius (r)"]:
-                #     print(df[df["Radius (r)"] == r])
-                    
-                #     break
-                    
         
                 df_long = pd.melt(df, id_vars=["Radius (r)"], value_vars=["Average"]+[f"Sample {i+1}" for i in range(8)],
                                   var_name="Sample", value_name="K_norm")
-                # print(df_long)
-                print(t)
                 _draw_combined_graph(df_long, title=titles[i_cnt])
                 i_cnt += 1
 
