@@ -580,9 +580,6 @@ def monte_carlo(
     total_results = []
     for n_line in tqdm(range(n_samples), disable=disable_progress):
 
-        if not disable_progress:
-            print(f"Simulation: {n_line}/{n_samples}")
-
         # Univariate
         if points_j is None:
             CSR_points = generate_random_points(points_i, mask)
