@@ -577,7 +577,7 @@ def monte_carlo(
         return np.split(combined_arr, [points_i.shape[0]])
 
     # Initialize an empty list to store results
-    CSR_results = []
+    total_results = []
     for n_line in tqdm(range(n_samples), disable=disable_progress):
 
         if not disable_progress:
@@ -610,12 +610,11 @@ def monte_carlo(
                 disable_progress=disable_progress
             )
 
-        # Organize results into a structured format
-        CSR_results += results
+        # Collect results
+        total_results.append(results)
 
     # Create a DataFrame from the results
-    CSR_rstats = pd.DataFrame(CSR_results, columns=["Radius (r)", "K(r)", "L(r)", "H(r)", "Line"])
-    return CSR_rstats
+    return pd.concat(total_results, ignore_index=True)
 
 def load_tumor_locations(path, filename, steps):
     """
@@ -739,28 +738,26 @@ def main(FLAGS):
         for name, points in all_points.items():
             if name != "tumor":
                 print(f"Running multivariate analyses between tumor and {name} points")
-                random_m1_rstats = monte_carlo(tumor_points, mask, radii, points, n_samples=100, n_processes=55, boundary_correction=False)
+                random_m1_results = monte_carlo(tumor_points, mask, radii, points, n_samples=100, n_processes=55, boundary_correction=False)
                 m1_results = run_ripley(tumor_points, points, mask, radii, n_processes=55, boundary_correction=False)
-                m1_rstats = pd.DataFrame(m1_results, columns=["Radius (r)", "K(r)", "L(r)", "H(r)"])
         
                 # Uncomment to save rstats to csv
-                random_m1_rstats.to_csv(os.path.join(FLAGS.output_dir,
+                random_m1_results.to_csv(os.path.join(FLAGS.output_dir,
                                                      f"{filename}_random_multivariate_tumor_{name}_rstats.csv"))
-                m1_rstats.to_csv(os.path.join(FLAGS.output_dir,
+                m1_results.to_csv(os.path.join(FLAGS.output_dir,
                                               f"{filename}_multivariate_tumor_{name}_rstats.csv"))
 
     # Run multivariate comparisons with ng2 
     for name, points in all_points.items():
         if name != "tumor" and name != "ng2":
             print(f"Running multivariate analyses between ng2 and {name} points")
-            random_m2_rstats = monte_carlo(ng2_points, mask, radii, points, n_samples=100, n_processes=55, boundary_correction=False)
+            random_m2_results = monte_carlo(ng2_points, mask, radii, points, n_samples=100, n_processes=55, boundary_correction=False)
             m2_results = run_ripley(ng2_points, points, mask, radii, n_processes=55, boundary_correction=False)
-            m2_rstats = pd.DataFrame(m2_results, columns=["Radius (r)", "K(r)", "L(r)", "H(r)"])
     
             # Uncomment to save rstats to csv
-            random_m2_rstats.to_csv(os.path.join(FLAGS.output_dir,
+            random_m2_results.to_csv(os.path.join(FLAGS.output_dir,
                                                  f"{filename}_random_multivariate_ng2_{name}_rstats.csv"))
-            m2_rstats.to_csv(os.path.join(FLAGS.output_dir,
+            m2_results.to_csv(os.path.join(FLAGS.output_dir,
                                          f"{filename}_multivariate_ng2_{name}_rstats.csv"))
 
 if __name__ == "__main__":
