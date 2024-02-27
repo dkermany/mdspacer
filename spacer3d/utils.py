@@ -358,6 +358,7 @@ def plot_process(rstats_path):
         ax[3].set(xlabel=None, ylabel=r"$\mathit{K}$$_{Norm}$")
         
     rstats_files = get_rstats_files(rstats_path)
+    print("Loaded:", rstats_files)
     
     # filter our monte carlo results
     rstats_files = [os.path.splitext(os.path.basename(f))[0] for f in rstats_files if "random" not in f]
@@ -411,6 +412,7 @@ def plot_individuals(rstats_path):
         return [[sublist[i] for i in order] for sublist in lst]
         
     rstats_files = get_rstats_files(rstats_path)
+    print("Loaded:", rstats_files)
 
     # filter our monte carlo results
     rstats_files = [os.path.splitext(os.path.basename(f))[0] for f in rstats_files if "random" not in f]
@@ -480,7 +482,7 @@ def plot_individuals(rstats_path):
     fig_legend.savefig('/Users/danielkermany/Desktop/legend_only.svg')
     # plt.savefig("/Users/danielkermany/Desktop/S6.svg", bbox_inches="tight")
 
-def draw_combined_graph(df, title=None):
+def _draw_combined_graph(df, title=None):
     # Set the tick label format to plain
     plt.ticklabel_format(style="plain")
 
@@ -553,6 +555,7 @@ def plot_combined_univariate(rstats_path):
         return [[sublist[i] for i in order] for sublist in lst]
         
     rstats_files = get_rstats_files(rstats_path)
+    print("Loaded:", rstats_files)
 
     # filter our monte carlo results
     rstats_files = [os.path.splitext(os.path.basename(f))[0] for f in rstats_files if "random" not in f]
@@ -586,7 +589,7 @@ def plot_combined_univariate(rstats_path):
                           var_name="Sample", value_name="K_norm")
         # print(df_long)
         print(t)
-        draw_combined_graph(df_long, title=t)
+        _draw_combined_graph(df_long, title=t)
 
 def plot_combined_multivariate(rstats_path):
     def get_rstats_files(path):
@@ -601,6 +604,7 @@ def plot_combined_multivariate(rstats_path):
         return [[sublist[i] for i in order] for sublist in lst]
         
     rstats_files = get_rstats_files(rstats_path)
+    print("Loaded:", rstats_files)
 
     # filter our monte carlo results
     rstats_files = [os.path.splitext(os.path.basename(f))[0] for f in rstats_files if "random" not in f]
@@ -649,7 +653,7 @@ def plot_combined_multivariate(rstats_path):
                                   var_name="Sample", value_name="K_norm")
                 # print(df_long)
                 print(t)
-                draw_combined_graph(df_long, title=titles[i_cnt])
+                _draw_combined_graph(df_long, title=titles[i_cnt])
                 i_cnt += 1
 
 def create_directory(path):
