@@ -369,7 +369,7 @@ def plot_process(rstats_path, save=False, output_folder="./ripley_plots"):
     plt.rcParams.update({"font.size": 16})
     
     # Create a subplot with 3 rows and 1 column
-    f, axes = plt.subplots(len(u_rstats_files), 4, sharex=True, figsize=(19,6))
+    f, axes = plt.subplots(len(u_rstats_files), 4, sharex=True, figsize=(19,6*len(u_rstats_files)))
 
     f.tight_layout(pad=1.4)
     f.supxlabel("Radius (μm)", y=0.00)
