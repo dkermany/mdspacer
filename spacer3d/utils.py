@@ -392,9 +392,9 @@ def plot_process(rstats_path, save=False, output_folder="./ripley_plots"):
 
         if save:
             create_directory(output_folder)
-            plt.savefig(os.path.join(output_folder, f"{filename}.svg"))
+            plt.savefig(os.path.join(output_folder, f"{filename}_process.svg"))
         
-def plot_individuals(rstats_path):
+def plot_individuals(rstats_path, save=False, output_folder="./ripley_results/"):
     palette = sns.color_palette("rocket_r")
 
     def get_rstats_files(path):
@@ -422,8 +422,6 @@ def plot_individuals(rstats_path):
     
     # Create a subplot with 3 rows and 1 column
     f, axes = plt.subplots(4,4, sharex=True, figsize=(15,15))
-    # f.add_subplot(111, frameon=False)
-    # plt.tick_params(labelcolor='none', which='both', top=False, bottom=False, left=False, right=False)
     f.tight_layout(pad=-0.35)
 
     f.supxlabel("Radius (μm)", x=0.51, y=-0.001)
@@ -431,7 +429,7 @@ def plot_individuals(rstats_path):
     f.subplots_adjust(bottom=0.06, left=0.06)
     
     # Loop over each univariate filename
-    for i, group in enumerate(grouped_u_rstats_files[4:]):
+    for i, group in enumerate(grouped_u_rstats_files):
         for j, filename in enumerate(group):
             # Construct the path for the CSV file
             fullpath = os.path.join(rstats_path, f"{filename}.csv")
@@ -461,20 +459,21 @@ def plot_individuals(rstats_path):
             axes[i, j].tick_params(axis="both", labelsize="14")
 
             # _config_legend(patches, ax=axes[i, j])
-            # plt.savefig(os.path.join(rstats_path, "all_results", f"{filename}"))
+    if save:
+        plt.savefig(os.path.join(output_folder, f"{filename}_individual.svg"))
 
     # Create a new figure for the legend
-    fig_legend = plt.figure(figsize=(3, 2))
-    ax_legend = fig_legend.add_subplot(111)
+    # fig_legend = plt.figure(figsize=(3, 2))
+    # ax_legend = fig_legend.add_subplot(111)
     # Make the subplot area transparent and remove the axes
-    ax_legend.axis('off')
-    fig_legend.subplots_adjust(left=0, right=1, top=1, bottom=0)
+    # ax_legend.axis('off')
+    # fig_legend.subplots_adjust(left=0, right=1, top=1, bottom=0)
     
     # Draw the legend on the new figure
-    ax_legend.legend(*axes[0,0].get_legend_handles_labels(), loc='center')
+    # ax_legend.legend(*axes[0,0].get_legend_handles_labels(), loc='center')
 
     # Save the figure containing only the legend
-    fig_legend.savefig('/Users/danielkermany/Desktop/legend_only.svg')
+    # fig_legend.savefig('/Users/danielkermany/Desktop/legend_only.svg')
     # plt.savefig("/Users/danielkermany/Desktop/S6.svg", bbox_inches="tight")
 
 def _draw_combined_graph(df, title=None):
