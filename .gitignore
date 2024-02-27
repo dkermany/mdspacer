@@ -2,8 +2,13 @@
 *.mp4
 *.tif
 *.tiff
+*.csv
+*.npy
+*.oib
 checkpoints/*
 tensorboard/*
+masks/
+BoneMets_points/
 
 
 # Byte-compiled / optimized / DLL files
