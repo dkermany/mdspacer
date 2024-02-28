@@ -305,7 +305,7 @@ def _plot_all_intervals(pi_df, palette, ax=None):
     patches.insert(0, patch)
     return patches
 
-def _plot_normalized_graph(rstats, rand_rstats, ax, palette):
+def _plot_normalized_graph(rstats, rand_rstats, palette, ax=None):
     normalized_k_df, intervals_df = normalize_w_intervals(rstats, rand_rstats)
     sns.lineplot(data=normalized_k_df, x="radius", y="theoretical_K", ax=ax, label=r"Theoretical $\mathit{K}$ Function", color="#888", linewidth=2, linestyle="dotted", zorder=98)
     sns.lineplot(data=normalized_k_df, x="radius", y="normalized_K", ax=ax, alpha=1, zorder=99, label=r"Observed $\mathit{K}$ Function")
@@ -379,7 +379,7 @@ def plot_process(rstats_path, save=False, output_folder="./ripley_plots"):
         ax[2].set(xlabel=None, ylabel=None)
 
         # draw_normalized_graph(rstats, rand_rstats, ax=ax[3])
-        patches = _plot_normalized_graph(rstats, rand_rstats, ax=ax[3], palette=palette)
+        patches = _plot_normalized_graph(rstats, rand_rstats, palette=palette, ax=ax[3])
         _config_legend(patches, ax=ax[3])
         ax[3].set(xlabel=None, ylabel=r"$\mathit{K}$$_{Norm}$")
         
@@ -480,7 +480,7 @@ def plot_individuals(rstats_path, save=False, output_folder="./ripley_results/")
             rstats['theoretical_K'] = ((4/3) * np.pi * rstats['Radius (r)']**3) + rstats["K(r)"].min()
 
             # draw_normalized_graph(rstats, rand_rstats, ax=axes[i,j], title=title[j])
-            patches = _plot_normalized_graph(rstats, rand_rstats, ax=axes[i,j], palette=palette)
+            patches = _plot_normalized_graph(rstats, rand_rstats, palette=palette, ax=axes[i,j])
             axes[i, j].legend().remove()
             axes[i, j].set(xlabel="")
             axes[i, j].set(ylabel="")
