@@ -345,10 +345,12 @@ fig, ax = plt.subplots()
 
 # def single_plot_process(df, save=False, output_folder="./ripley_plots"):
 
-def plot_ripley(df, rand_df=None, mode="3D", save=False, output_folder="./ripley_plots", output_filename="ripley_figure.svg"):
-    plt.figure(figsize=(5, 5))
+def plot_ripley(df, rand_df=None, mode="3D", norm=False, save=False, output_folder="./ripley_plots", output_filename="ripley_figure.svg"):
+    if norm and rand_df is None:
+        raise ValueError("rand_df parameter required to plot normalized Ripley's K Function")
+    
+    plt.figure(figsize=(5,5))
     plt.xlabel("Radius")
-    plt.ylabel(r"$\mathit{K}$(r)")
     palette = sns.color_palette("rocket_r")
 
     if mode == "2D":
@@ -356,13 +358,18 @@ def plot_ripley(df, rand_df=None, mode="3D", save=False, output_folder="./ripley
     else:
         df['theoretical_K'] = ((4/3) * np.pi * df['Radius (r)']**3) + df["K(r)"].min()
 
-    sns.lineplot(data=df, x="Radius (r)", y="K(r)", alpha=1, label=r"Observed $\mathit{K}$ Function", zorder=99)
-    sns.lineplot(data=df, x="Radius (r)", y="theoretical_K", label=r"Theoretical $\mathit{K}$ Function", color="#888", linewidth=2, linestyle="dotted", zorder=98)
+    if norm:
+        plt.ylabel(r"$\mathit{K}_{\mathrm{Norm}}(r)$")
+        _plot_normalized_graph(df, rand_rstats=rand_df, palette=palette)
+    else:
+        plt.ylabel(r"$\mathit{K}$(r)")
+        sns.lineplot(data=df, x="Radius (r)", y="K(r)", alpha=1, label=r"Observed $\mathit{K}$ Function", zorder=99)
+        sns.lineplot(data=df, x="Radius (r)", y="theoretical_K", label=r"Theoretical $\mathit{K}$ Function", color="#888", linewidth=2, linestyle="dotted", zorder=98)
 
-    if rand_df is not None:
-        pi_df = pi_range_to_df(calculate_percentile_range(rand_df))
-        patches = _plot_all_intervals(pi_df, palette=palette)
-        _config_legend(patches)
+        if rand_df is not None:
+            pi_df = pi_range_to_df(calculate_percentile_range(rand_df))
+            patches = _plot_all_intervals(pi_df, palette=palette)
+            _config_legend(patches)
 
     if save:
         create_directory(output_folder)
