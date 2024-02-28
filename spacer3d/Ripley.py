@@ -323,7 +323,7 @@ class CrossRipley(Ripley):
 
     def _calc_ripley(self, radius):
         """
-        Calculate 3D multivariate Ripley's functions (K_ij, L_ij, H_ij) for a given radius and
+        Calculate multivariate Ripley's functions (K_ij, L_ij, H_ij) for a given radius and
         and apply weight coefficient.
 
         For each radius, loop through each point_i and count number of point_j within the radius.
@@ -347,14 +347,17 @@ class CrossRipley(Ripley):
         nb_count = 0
         running_weights = []
         running_trees = []
-        for z, y, x in self.points_i:
+        for point in self.points_i:
             start_time = time.time()
 
             if self.boundary_correction:
-                weight = self.calculate_weight(radius, (z, y, x))
-                # If weight is zero (i.e. target sphere not in mask), move on
-                if weight == 0:
-                    continue
+                if self.points_i.shape[1] == 3:
+                    weight = self.calculate_weight(radius, [*point])
+                    # If weight is zero (i.e. target sphere not in mask), move on
+                    if weight == 0:
+                        continue
+                else:
+                    weight = 1.0
             else:
                 weight = 1.0
 
@@ -367,7 +370,7 @@ class CrossRipley(Ripley):
             
             start_time = time.time()
 
-            nb_count += (len(self.j_tree.query_ball_point([z, y, x], radius, workers=-1))) / weight
+            nb_count += (len(self.j_tree.query_ball_point([*point], radius, workers=-1))) / weight
 
             end_time = time.time()
             tree_time = end_time - start_time
