@@ -253,7 +253,7 @@ class Ripley():
             raise ValueError(e)
 
         # Check if the self.points_i array second dimension length is 3 (x, y, z)
-        if self.points_i.shape[1] != 3 or self.points_i.shape[1] != 2:
+        if self.points_i.shape[1] != 3 and self.points_i.shape[1] != 2:
             e = f"Expected self.points_i array to have shape (None, 3) or (None, 2), but got array with shape {self.points_i.shape}"
             raise ValueError(e)
 
@@ -411,7 +411,7 @@ class CrossRipley(Ripley):
             raise ValueError(e)
 
         # Check if the self.points_j array second dimension length is 3 (x, y, z)
-        if self.points_j.shape[1] != 3 or self.points_j.shape[1] != 2:
+        if self.points_j.shape[1] != 3 and self.points_j.shape[1] != 2:
             e = f"Expected self.points_j array to have shape (None, 3) or (None, 2), but got array with shape {self.points_j.shape}"
             raise ValueError(e)
         
