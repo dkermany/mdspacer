@@ -296,7 +296,7 @@ def get_interval_pairs(df):
 
     return interval_dfs
 
-def _plot_all_intervals(pi_df, ax, palette):
+def _plot_all_intervals(pi_df, palette, ax=None):
     patches = []
     for i, pi in enumerate(["0.9999", "0.999", "0.99", "0.95"]):
         patch = plot_interval(pi_df, color=palette[i+1], ax=ax, pi=pi)
@@ -309,12 +309,12 @@ def _plot_normalized_graph(rstats, rand_rstats, ax, palette):
     normalized_k_df, intervals_df = normalize_w_intervals(rstats, rand_rstats)
     sns.lineplot(data=normalized_k_df, x="radius", y="theoretical_K", ax=ax, label=r"Theoretical $\mathit{K}$ Function", color="#888", linewidth=2, linestyle="dotted", zorder=98)
     sns.lineplot(data=normalized_k_df, x="radius", y="normalized_K", ax=ax, alpha=1, zorder=99, label=r"Observed $\mathit{K}$ Function")
-    patches = _plot_all_intervals(intervals_df, ax=ax, palette=palette)
+    patches = _plot_all_intervals(intervals_df, palette=palette, ax=ax)
     return patches
     
     # paired_intervals = get_interval_pairs(normalized_df)
 
-def _config_legend(patches, ax):
+def _config_legend(patches, ax=None):
     patch_labels = [p.get_label() for p in patches]
 
     # Retrieve existing handles and labels from the axis
@@ -324,6 +324,31 @@ def _config_legend(patches, ax):
 
     ax.legend(handles=all_handles, labels=all_labels, loc="upper left", fontsize="12")
 
+# def single_plot_process(df, save=False, output_folder="./ripley_plots"):
+
+def plot_ripley(df, rand_df=None, mode="3D", save=False, output_folder="./ripley_plots", output_filename="ripley_figure.svg"):
+    plt.figure(figsize=(5, 5))
+    plt.set(xlabel="Radius", ylabel=r"$\mathit{K}$(r)")
+    palette = sns.color_palette("rocket_r")
+
+    if mode == "2D":
+        df['theoretical_K'] = (np.pi * df['Radius (r)']**2) + df["K(r)"].min()
+    else:
+        df['theoretical_K'] = ((4/3) * np.pi * df['Radius (r)']**3) + df["K(r)"].min()
+
+    sns.lineplot(data=df, x="Radius (r)", y="K(r)", alpha=1, label=r"Observed $\mathit{K}$ Function", zorder=99)
+    sns.lineplot(data=df, x="Radius (r)", y="theoretical_K", label=r"Theoretical $\mathit{K}$ Function", color="#888", linewidth=2, linestyle="dotted", zorder=98)
+
+    if rand_df:
+        pi_df = pi_range_to_df(calculate_percentile_range(rand_df))
+        patches = _plot_all_intervals(pi_df, palette=palette)
+        _config_legend(patches)
+
+    if save:
+        create_directory(output_folder)
+        plt.savefig(os.path.join(output_folder, output_filename))
+
+
 def plot_process(rstats_path, save=False, output_folder="./ripley_plots"):
     # palette = sns.color_palette("colorblind")
     palette = sns.color_palette("rocket_r")
@@ -332,13 +357,13 @@ def plot_process(rstats_path, save=False, output_folder="./ripley_plots"):
     def get_rstats_files(path):
         return glob(f"{path}/*.csv")
 
-    def plot(rstats, rand_rstats, ax):
+    def _plot(rstats, rand_rstats, ax):
         a = sns.lineplot(data=rand_rstats, x="Radius (r)", y="K(r)", hue="Line", ax=ax[0], alpha=1)
         a.get_legend().remove()
         ax[0].set(xlabel=None, ylabel=r"$\mathit{K}$(r)")
 
         pi_df = pi_range_to_df(calculate_percentile_range(rand_rstats))
-        patches = _plot_all_intervals(pi_df, ax=ax[1], palette=palette)
+        patches = _plot_all_intervals(pi_df, palette=palette, ax=ax[1])
         _config_legend(patches, ax=ax[1])
         ax[1].set(xlabel=None, ylabel=None)
 
@@ -347,7 +372,7 @@ def plot_process(rstats_path, save=False, output_folder="./ripley_plots"):
 
         sns.lineplot(data=rstats, x="Radius (r)", y="theoretical_K", ax=ax[2], label=r"Theoretical $\mathit{K}$ Function", color="#888", linewidth=2, linestyle="dotted", zorder=98)
         sns.lineplot(data=rstats, x="Radius (r)", y="K(r)", ax=ax[2], alpha=1, zorder=99, label=r"Observed $\mathit{K}$ Function")
-        patches = _plot_all_intervals(pi_df, ax=ax[2], palette=palette)
+        patches = _plot_all_intervals(pi_df, palette=palette, ax=ax[2])
 
         _config_legend(patches, ax=ax[2])        
         ax[2].set(xlabel=None, ylabel=None)
@@ -390,7 +415,7 @@ def plot_process(rstats_path, save=False, output_folder="./ripley_plots"):
         for ax in axes[i]:
             ax.tick_params(axis="both", labelsize="16")
 
-        plot(rstats, rand_rstats, ax=axes[i])
+        _plot(rstats, rand_rstats, ax=axes[i])
 
         if save:
             create_directory(output_folder)

@@ -503,6 +503,7 @@ def monte_carlo(
         mask,
         radii,
         points_j=None,
+        mode="3D",
         n_samples=5,
         boundary_correction=True,
         disable_progress=False,
@@ -529,7 +530,7 @@ def monte_carlo(
     - pd.DataFrame: A DataFrame containing the results of the Monte Carlo simulation.
     """
 
-    def generate_random_points(points, mask):
+    def generate_random_points(points, mask, mode="3D"):
         """
         Generate random points within the mask for univariate comparisons.
 
@@ -539,17 +540,19 @@ def monte_carlo(
         Parameters:
         - points (array-like): The original set of points.
         - mask (array-like): The binary mask defining valid areas.
+        - mode (str): Determines whether generated points are 3D or 2D
 
         Returns:
         - array-like: An array of randomly generated points within the mask.
         """
-        CSR_points = np.empty((points.shape[0], 3), dtype=np.uint16)
+        dim = 3 if mode == "3D" else 2
+        CSR_points = np.empty((points.shape[0], dim), dtype=np.uint16)
         for i in range(points.shape[0]):
             while True:
-                # Generate random point
-                z, y, x = map(int, [stats.uniform.rvs(0, mask.shape[j]) for j in range(3)])
-                if mask[z, y, x] == 1:
-                    CSR_points[i] = np.array([z, y, x])
+                # Generate random point (z, y, x)
+                point = map(int, [stats.uniform.rvs(0, mask.shape[j]) for j in range(dim)])
+                if mask[point] == 1:
+                    CSR_points[i] = np.array(point)
                     break
                 # pool.map(self._calc_ripley, self.radii)
         return CSR_points
@@ -579,7 +582,7 @@ def monte_carlo(
 
         # Univariate
         if points_j is None:
-            CSR_points = generate_random_points(points_i, mask)
+            CSR_points = generate_random_points(points_i, mask, mode=mode)
             results = run_ripley(
                 CSR_points,
                 CSR_points, mask,
