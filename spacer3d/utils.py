@@ -134,7 +134,7 @@ def pi_range_to_df(data: dict):
     # Convert the list of rows into a DataFrame
     return pd.DataFrame(rows)
 
-def plot_interval(df, color, ax, pi="0.95"):
+def plot_interval(df, color, ax=None, pi="0.95"):
     """
     Plots confidence intervals (lower and upper bounds) for a specified 'pi' value from a DataFrame
     onto a given axis ('ax'), including filling the area between these bounds.
@@ -170,12 +170,15 @@ def plot_interval(df, color, ax, pi="0.95"):
     upper = df[df["pi"] == pi]["upper"]
 
     # Filling between the 'lower' and 'upper' lines on the second subplot
-    ax.fill_between(radii, lower, upper, color=get_equivalent_color(color, 0.2))  # Adjust the color and alpha as needed
+    if ax is None:
+        plt.fill_between(radii, lower, upper, color=get_equivalent_color(color, 0.2))  # Adjust the color and alpha as needed
+    else:
+        ax.fill_between(radii, lower, upper, color=get_equivalent_color(color, 0.2))  # Adjust the color and alpha as needed
     label = float(pi) * 100
     label = int(label) if label.is_integer() else label
     return mpatches.Patch(color=get_equivalent_color(color, 0.2), label=f"{label}% Interval")
 
-def plot_background_intervals(df, color, ax):
+def plot_background_intervals(df, color, ax=None):
     max_pi = str(df["pi"].astype(float).max())
 
     # Extracting the 'radius', 'lower', and 'upper' values for the specified confidence interval
@@ -184,13 +187,23 @@ def plot_background_intervals(df, color, ax):
     upper = df[df["pi"] == max_pi]["upper"]
 
     # Get current y-axis limits
-    ymin, ymax = ax.get_ylim()
+    if ax is not None:
+        ymin, ymax = ax.get_ylim()
 
-    # Filling from the bottom of the graph to the bottom-most line
-    ax.fill_between(radii, ymin, lower, color=get_equivalent_color(color, 0.2))
+        # Filling from the bottom of the graph to the bottom-most line
+        ax.fill_between(radii, ymin, lower, color=get_equivalent_color(color, 0.2))
 
-    # Filling from the top of the graph to the topmost line
-    ax.fill_between(radii, upper, ymax, color=get_equivalent_color(color, 0.2))
+        # Filling from the top of the graph to the topmost line
+        ax.fill_between(radii, upper, ymax, color=get_equivalent_color(color, 0.2))
+    else:
+        ymin, ymax = plt.ylim()
+
+        # Filling from the bottom of the graph to the bottom-most line
+        plt.fill_between(radii, ymin, lower, color=get_equivalent_color(color, 0.2))
+
+        # Filling from the top of the graph to the topmost line
+        plt.fill_between(radii, upper, ymax, color=get_equivalent_color(color, 0.2))
+
     return mpatches.Patch(color=get_equivalent_color(color, 0.2), label=f">99.99% Interval")
 
 def normalize(rstats, rand_rstats):
@@ -317,12 +330,18 @@ def _plot_normalized_graph(rstats, rand_rstats, palette, ax=None):
 def _config_legend(patches, ax=None):
     patch_labels = [p.get_label() for p in patches]
 
-    # Retrieve existing handles and labels from the axis
-    line_handles, line_labels = ax.get_legend_handles_labels()
-    all_handles = line_handles + patches
-    all_labels = line_labels + patch_labels
+    if ax is not None:
+        # Retrieve existing handles and labels from the axis
+        line_handles, line_labels = ax.get_legend_handles_labels()
+        ax.legend(handles=line_handles+patches, labels=line_labels+patch_labels, loc="upper left", fontsize="12")
+    else:
+        # Retrieve existing handles and labels from the current axes
+        line_handles, line_labels = plt.gca().get_legend_handles_labels()
+        # Configure the legend for the current axes
+        plt.legend(handles=line_handles+patches, labels=line_labels+patch_labels, loc="upper left", fontsize=12)
 
-    ax.legend(handles=all_handles, labels=all_labels, loc="upper left", fontsize="12")
+# Example usage
+fig, ax = plt.subplots()
 
 # def single_plot_process(df, save=False, output_folder="./ripley_plots"):
 
@@ -340,7 +359,7 @@ def plot_ripley(df, rand_df=None, mode="3D", save=False, output_folder="./ripley
     sns.lineplot(data=df, x="Radius (r)", y="K(r)", alpha=1, label=r"Observed $\mathit{K}$ Function", zorder=99)
     sns.lineplot(data=df, x="Radius (r)", y="theoretical_K", label=r"Theoretical $\mathit{K}$ Function", color="#888", linewidth=2, linestyle="dotted", zorder=98)
 
-    if rand_df:
+    if rand_df is not None:
         pi_df = pi_range_to_df(calculate_percentile_range(rand_df))
         patches = _plot_all_intervals(pi_df, palette=palette)
         _config_legend(patches)
@@ -532,35 +551,52 @@ def _draw_combined_graph(df, title=None):
     
     # # Get the current x-axis limits after plotting the data
     # ax = plt.gca()
-    xlims = ax.get_xlim()
+
+    xlims = ax.get_xlim() if ax is not None else plt.xlim()
     
     # Get the current y-axis limits after plotting the data
-    ylims = ax.get_ylim()
-    
-    # Fill between y=1 and y=-1, extending to the edges of the graph
-    ax.fill_between(xlims, -1, 1, color='#ffe5ce', alpha=0.9)
-    
-    # Adding thicker lines for the top and bottom borders, extending to the edges
-    ax.hlines(1, *xlims, colors='#ffbb80', linewidth=1.5)
-    ax.hlines(-1, *xlims, colors='#ffbb80', linewidth=1.5)
-    
-    # Set the x and y-axis limits to ensure the fill and borders extend to the edges
-    ax.set_xlim(xlims)
-    ax.set_ylim(ylims)
-    
-    ax.set(xlabel="")
-    ax.set(ylabel="")
+    ylims = ax.get_ylim() if ax is not None else plt.ylim()
 
     # Manually set the y-axis limits to include the -1 to 1 range
     max_val = max(df["K_norm"])
     min_val = min(df["K_norm"])
     
     new_ylims = (min(-1-(0.05*max_val), min_val), max(1+(0.05*max_val), max_val))  # This includes both your data and the -1 to 1 interval
-    #print("new ylims", new_ylims)
-    ax.set_ylim(new_ylims)
+    
+    # Fill between y=1 and y=-1, extending to the edges of the graph
+    if ax is not None:
+        ax.fill_between(xlims, -1, 1, color='#ffe5ce', alpha=0.9)
+
+        # Adding thicker lines for the top and bottom borders, extending to the edges
+        ax.hlines(1, *xlims, colors='#ffbb80', linewidth=1.5)
+        ax.hlines(-1, *xlims, colors='#ffbb80', linewidth=1.5)
+        
+        # Set the x and y-axis limits to ensure the fill and borders extend to the edges
+        ax.set_xlim(xlims)
+        ax.set_ylim(new_ylims)
+        
+        ax.set(xlabel="")
+        ax.set(ylabel="")
+
+        ax.title.set_text(title)
+    else:
+        plt.fill_between(xlims, -1, 1, color='#ffe5ce', alpha=0.9)
+
+        # Adding thicker lines for the top and bottom borders, extending to the edges
+        plt.hlines(1, *xlims, colors='#ffbb80', linewidth=1.5)
+        plt.hlines(-1, *xlims, colors='#ffbb80', linewidth=1.5)
+        
+        # Set the x and y-axis limits to ensure the fill and borders extend to the edges
+        plt.xlim(xlims)
+        plt.ylim(new_ylims)
+        
+        plt.xlabel("")
+        plt.ylabel("")
+
+        plt.title.set_text(title)
+    
 
     plt.legend(prop={'size': 14})  # Set the font size to 10
-    ax.title.set_text(title)
 
 def plot_combined_univariate(rstats_path):
     def get_rstats_files(path):
