@@ -328,7 +328,8 @@ def _config_legend(patches, ax=None):
 
 def plot_ripley(df, rand_df=None, mode="3D", save=False, output_folder="./ripley_plots", output_filename="ripley_figure.svg"):
     plt.figure(figsize=(5, 5))
-    plt.set(xlabel="Radius", ylabel=r"$\mathit{K}$(r)")
+    plt.xlabel("Radius")
+    plt.ylabel(r"$\mathit{K}$(r)")
     palette = sns.color_palette("rocket_r")
 
     if mode == "2D":

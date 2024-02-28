@@ -550,7 +550,7 @@ def monte_carlo(
         for i in range(points.shape[0]):
             while True:
                 # Generate random point (z, y, x)
-                point = map(int, [stats.uniform.rvs(0, mask.shape[j]) for j in range(dim)])
+                point = tuple(map(int, [stats.uniform.rvs(0, mask.shape[j]) for j in range(dim)]))
                 if mask[point] == 1:
                     CSR_points[i] = np.array(point)
                     break
