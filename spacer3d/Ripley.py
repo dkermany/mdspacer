@@ -118,13 +118,13 @@ class Ripley():
         self.points_i = points_i
         self.radii = radii
         self.mask = mask.astype(np.uint8)
-        self.volume_shape = self.mask.shape
+        self.mask_shape = self.mask.shape
         self.boundary_correction = boundary_correction
         self.disable_progress = disable_progress
         self._validate_inputs()
 
         self.i_tree = spatial.cKDTree(self.points_i)
-        self.study_volume = reduce(lambda x, y: x * y, self.volume_shape)
+        self.study_volume = reduce(lambda x, y: x * y, self.mask_shape)
 
     @staticmethod
     def worker(fn, task_queue, result_queue):
@@ -198,7 +198,7 @@ class Ripley():
             return cache[key]
         
         # Draw the target sphere in a 3D NumPy array at the specified position
-        # target = np.zeros(self.volume_shape, dtype=np.uint8)
+        # target = np.zeros(self.mask_shape, dtype=np.uint8)
         # draw_sphere_in_volume(target, radius, center)
 
         # Bitwise and operation between the sphere and mask to calculate intersection
@@ -253,8 +253,8 @@ class Ripley():
             raise ValueError(e)
 
         # Check if the self.points_i array second dimension length is 3 (x, y, z)
-        if self.points_i.shape[1] != 3:
-            e = f"Expected self.points_i array to have shape (None, 3), but got array with shape {self.points_i.shape}"
+        if self.points_i.shape[1] != 3 or self.points_i.shape[1] != 2:
+            e = f"Expected self.points_i array to have shape (None, 3) or (None, 2), but got array with shape {self.points_i.shape}"
             raise ValueError(e)
 
         # Check if the self.points_i array has at least 3 points
@@ -292,10 +292,10 @@ class CrossRipley(Ripley):
         Initialize a CrossRipley object.
 
         Args:
-        points_i (np.ndarray): A 2D NumPy array of shape (N, 3) representing the coordinates of points of type 'i' in 3D space.
-        points_j (np.ndarray): A 2D NumPy array of shape (M, 3) representing the coordinates of points of type 'j' in 3D space.
+        points_i (np.ndarray): A 2D NumPy array of shape (N, 3) or (M, 2) representing the coordinates of points of type 'i' in space.
+        points_j (np.ndarray): A 2D NumPy array of shape (M, 3) or (M, 2)representing the coordinates of points of type 'j' in space.
         radii (list): A list of radii at which to calculate Ripley's K, L, and H functions.
-        mask (np.ndarray): A 3D binary mask representing the study volume.
+        mask (np.ndarray): A binary mask representing the study volume.
         boundary_correction (bool, optional): Whether to apply boundary correction. Defaults to True.
         """
         # Call the parent class's __init__ method using super()
@@ -321,7 +321,6 @@ class CrossRipley(Ripley):
             self._calc_ripley(r)
         return list(self.results["K"]), list(self.results["L"]), list(self.results["H"])
 
-    # TODO: Rewrite univariate _calc_ripley function for multivariate case
     def _calc_ripley(self, radius):
         """
         Calculate 3D multivariate Ripley's functions (K_ij, L_ij, H_ij) for a given radius and
@@ -378,12 +377,15 @@ class CrossRipley(Ripley):
         N_i = self.points_i.shape[0]
         N_j = self.points_j.shape[0]
         K_ij = nb_count * self.study_volume / (N_i * N_j)
-        L_ij = ((3. / 4) * (K_ij / np.pi)) ** (1. / 3)
+        if len(self.points_i.shape) == 3:
+            L_ij = ((3. / 4) * (K_ij / np.pi)) ** (1. / 3)
+        else:
+            L_ij = ((K_ij / np.pi)) ** (1. / 2)
         H_ij = L_ij - radius
         
         # Verify K/L values positive
         if K_ij < 0 or L_ij < 0:
-            raise ValueError(f"K/L values should not be negative. nb_count: {nb_count}, volume: {self.volume_shape}, N_i: {N_i}, N_j: {N_j}")
+            raise ValueError(f"K/L values should not be negative. nb_count: {nb_count}, volume: {self.mask_shape}, N_i: {N_i}, N_j: {N_j}")
 
         return (
             K_ij,
@@ -409,8 +411,12 @@ class CrossRipley(Ripley):
             raise ValueError(e)
 
         # Check if the self.points_j array second dimension length is 3 (x, y, z)
-        if self.points_j.shape[1] != 3:
-            e = f"Expected self.points_j array to have shape (None, 3), but got array with shape {self.points_j.shape}"
+        if self.points_j.shape[1] != 3 or self.points_j.shape[1] != 2:
+            e = f"Expected self.points_j array to have shape (None, 3) or (None, 2), but got array with shape {self.points_j.shape}"
+            raise ValueError(e)
+        
+        if self.points_i.shape != self.points_j.shape:
+            e = f"Expected self.points_i and self.points_j to have the same shape"
             raise ValueError(e)
 
         # Check if the self.points_j array has at least 3 points
@@ -424,9 +430,10 @@ class CrossRipley(Ripley):
 
         # if points are not within volume, raise error
         for p in [self.points_j]:
-            assert all(x < self.volume_shape[2] for x in p[:, 2])
-            assert all(y < self.volume_shape[1] for y in p[:, 1])
-            assert all(z < self.volume_shape[0] for z in p[:, 0])
+            if len(self.mask_shape) == 3:
+                assert all(x < self.mask_shape[2] for x in p[:, 2])
+            assert all(y < self.mask_shape[1] for y in p[:, 1])
+            assert all(z < self.mask_shape[0] for z in p[:, 0])
 
 def run_ripley(
         points_i: np.ndarray,
@@ -434,7 +441,7 @@ def run_ripley(
         mask: np.ndarray,
         radii: np.ndarray,
         boundary_correction: bool = False,
-        n_processes: int = 32,
+        n_processes: int = 1,
         n_line: int = None,
         disable_progress: bool = False) -> list:
     """
