@@ -327,18 +327,18 @@ def _plot_normalized_graph(rstats, rand_rstats, palette, ax=None):
     
     # paired_intervals = get_interval_pairs(normalized_df)
 
-def _config_legend(patches, ax=None):
+def _config_legend(patches, fontsize=None, ax=None):
     patch_labels = [p.get_label() for p in patches]
 
     if ax is not None:
         # Retrieve existing handles and labels from the axis
         line_handles, line_labels = ax.get_legend_handles_labels()
-        ax.legend(handles=line_handles+patches, labels=line_labels+patch_labels, loc="upper left", fontsize="12")
+        ax.legend(handles=line_handles+patches, labels=line_labels+patch_labels, loc="upper left", fontsize=fontsize)
     else:
         # Retrieve existing handles and labels from the current axes
         line_handles, line_labels = plt.gca().get_legend_handles_labels()
         # Configure the legend for the current axes
-        plt.legend(handles=line_handles+patches, labels=line_labels+patch_labels, loc="upper left", fontsize=12)
+        plt.legend(handles=line_handles+patches, labels=line_labels+patch_labels, loc="upper left", fontsize=fontsize)
 
 # Example usage
 fig, ax = plt.subplots()
@@ -360,7 +360,8 @@ def plot_ripley(df, rand_df=None, mode="3D", norm=False, save=False, output_fold
 
     if norm:
         plt.ylabel(r"$\mathit{K}_{\mathrm{Norm}}(r)$")
-        _plot_normalized_graph(df, rand_rstats=rand_df, palette=palette)
+        patches = _plot_normalized_graph(df, rand_rstats=rand_df, palette=palette)
+        _config_legend(patches)
     else:
         plt.ylabel(r"$\mathit{K}$(r)")
         sns.lineplot(data=df, x="Radius (r)", y="K(r)", alpha=1, label=r"Observed $\mathit{K}$ Function", zorder=99)
@@ -391,7 +392,7 @@ def plot_process(rstats_path, save=False, output_folder="./ripley_plots"):
 
         pi_df = pi_range_to_df(calculate_percentile_range(rand_rstats))
         patches = _plot_all_intervals(pi_df, palette=palette, ax=ax[1])
-        _config_legend(patches, ax=ax[1])
+        _config_legend(patches, fontsize=12, ax=ax[1])
         ax[1].set(xlabel=None, ylabel=None)
 
         # Calculate theoretical K values and add to rstats
@@ -401,12 +402,12 @@ def plot_process(rstats_path, save=False, output_folder="./ripley_plots"):
         sns.lineplot(data=rstats, x="Radius (r)", y="K(r)", ax=ax[2], alpha=1, zorder=99, label=r"Observed $\mathit{K}$ Function")
         patches = _plot_all_intervals(pi_df, palette=palette, ax=ax[2])
 
-        _config_legend(patches, ax=ax[2])        
+        _config_legend(patches, fontsize=12, ax=ax[2])        
         ax[2].set(xlabel=None, ylabel=None)
 
         # draw_normalized_graph(rstats, rand_rstats, ax=ax[3])
         patches = _plot_normalized_graph(rstats, rand_rstats, palette=palette, ax=ax[3])
-        _config_legend(patches, ax=ax[3])
+        _config_legend(patches, fontsize=12, ax=ax[3])
         ax[3].set(xlabel=None, ylabel=r"$\mathit{K}$$_{Norm}$")
         
     rstats_files = get_rstats_files(rstats_path)
