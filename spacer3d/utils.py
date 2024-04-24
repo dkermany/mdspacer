@@ -705,6 +705,88 @@ def plot_combined_multivariate(rstats_path):
                 _draw_combined_graph(df_long, title=titles[i_cnt])
                 i_cnt += 1
 
+def plot_combined_platelets(rstats_path):
+    def get_rstats_files(path):
+        return glob(f"{path}/*.csv")
+
+    types = ["control", "plerixafor"]
+    for t in types:
+        rstats_path = os.path.join(rstats_path, t)
+        rstats_files = sorted(get_rstats_files(rstats_path))
+
+        # filter our monte carlo results
+        main_rstats_files = [os.path.splitext(os.path.basename(f))[0] for f in rstats_files if "random" not in f]
+        rand_rstats_files = [os.path.splitext(os.path.basename(f))[0] for f in rstats_files if "random" in f]
+        assert len(main_rstats_files) == len(rand_rstats_files)
+        
+        paired_files = list(zip(main_rstats_files, rand_rstats_files))
+        print(paired_files)
+
+        df = pd.DataFrame()
+        for i, pair in enumerate(paired_files):
+            filename, rand_filename = pair
+
+            # Construct the path for the CSV file
+            fullpath = os.path.join(rstats_path, f"{filename}.csv")
+            rand_fullpath = os.path.join(rstats_path, f"{rand_filename}.csv")
+
+            # Load the CSV file and random CSV file into DataFrames
+            rstats = pd.read_csv(fullpath)
+            rand_rstats = pd.read_csv(rand_fullpath)
+
+            # Set radius column using first file
+            if i == 0:
+                df["Radius (r)"] = pd.Series(np.arange(2, rstats["Radius (r)"].max()+1))
+
+            K_norm = normalize(rstats, rand_rstats)
+            df[f"Sample {i+1}"] = pd.Series(K_norm)
+
+        df['Average'] = df.drop('Radius (r)', axis=1).mean(axis=1)
+        df_long = pd.melt(df, id_vars=["Radius (r)"], value_vars=["Average"]+[f"Sample {i+1}" for i in range(len(paired_files))],
+                          var_name="Sample", value_name="K_norm")
+        _draw_combined_graph(df_long, title=t)
+
+def plot_p_values(rstats_path, save=False, output_folder="./ripley_results/"):
+    def get_rstats_files(path):
+        return glob(f"{path}/*.csv")
+
+    def group_items(l, n=4):
+        """Groups every 'n' items in the list into sublists."""
+        return [l[i:i + n] for i in range(0, len(l), n)]
+
+    def rearrange_sublists(lst, order):
+        """Rearranges elements within each sublist of a list based on a specified order."""
+        return [[sublist[i] for i in order] for sublist in lst]
+        
+    rstats_files = get_rstats_files(rstats_path)
+    print("Loaded:", rstats_files)
+
+    # filter our monte carlo results
+    rstats_files = [os.path.splitext(os.path.basename(f))[0] for f in rstats_files if "random" not in f]
+    u_rstats_files = sorted([f for f in rstats_files if "univariate" in f])
+    m_rstats_files = sorted([f for f in rstats_files if "multivariate" in f])
+
+    types = ["tumor", "ng2", "branch", "tvc"]
+    for t in types:
+        t_files = [i for i in u_rstats_files if t in i]
+
+        df = pd.DataFrame()
+        df["Radius (r)"] = pd.Series(np.arange(2,100))
+        for i, filename in enumerate(t_files):
+            # Construct the path for the CSV file
+            fullpath = os.path.join(rstats_path, f"{filename}.csv")
+            prefix, _, date, id, mode, label, _ = filename.split("_")
+            
+            # Construct the path for the random CSV file
+            rand_fullpath = os.path.join(rstats_path, f"FV10__{date}_{id}_random_{mode}_{label}_rstats.csv")
+    
+            # Load the CSV file and random CSV file into DataFrames
+            rstats = pd.read_csv(fullpath)
+            rand_rstats = pd.read_csv(rand_fullpath)
+            print(rstats)
+            break
+
+
 def create_directory(path):
     """
     Creates directory at path if not exists
