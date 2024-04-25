@@ -448,6 +448,7 @@ def plot_process(rstats_path, save=False, output_folder="./ripley_plots"):
         if save:
             create_directory(output_folder)
             plt.savefig(os.path.join(output_folder, f"{filename}_process.svg"))
+        break
         
 def plot_individuals(rstats_path, save=False, output_folder="./ripley_results/"):
     palette = sns.color_palette("rocket_r")
