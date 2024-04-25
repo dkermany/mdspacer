@@ -532,7 +532,9 @@ def plot_individuals(rstats_path, save=False, output_folder="./ripley_results/")
     # fig_legend.savefig('/Users/danielkermany/Desktop/legend_only.svg')
     # plt.savefig("/Users/danielkermany/Desktop/S6.svg", bbox_inches="tight")
 
-def _draw_combined_graph(df, title=None):
+def _draw_combined_graph(df, title=None, legend=None, force_ylim=None,
+                         palette=None, save=False, output_folder="./ripley_results/",
+                         output_filename="ripley_combined_plot.svg"):
     # Set the tick label format to plain
     plt.ticklabel_format(style="plain")
 
@@ -543,20 +545,25 @@ def _draw_combined_graph(df, title=None):
     f, ax = plt.subplots(figsize=(7,7))
     
     # Plot the K(r) values for the data and the random data
-    l_ax = sns.lineplot(data=df, x="Radius (r)", y="K_norm", hue="Sample", style="Sample", ax=ax, legend="brief", zorder=3)
+    # l_ax = sns.lineplot(data=df, x="Radius (r)", y="K_norm", hue="Sample",
+    #                     style="Sample", ax=ax, legend=legend, zorder=3)
+    l_ax = sns.lineplot(data=df, x="Radius (r)", y="K_norm", hue="Mouse ID",
+                        style="Sample", ax=ax, legend=legend, zorder=3,
+                        palette=palette)
 
     for line in plt.gca().get_lines():
         label = line.get_label()
         if label == "Average":
             line.set_alpha(1.0)
         else:
-            line.set_alpha(0.5)
+            line.set_alpha(0.4)
 
     if len(l_ax. lines) > 0:
         average_line = l_ax.lines[0]
         average_line.set_linewidth(2)
         average_line.set_alpha(1.0)
         average_line.set_zorder(5)
+        average_line.set_linestyle("-")
     
     # # Get the current x-axis limits after plotting the data
     # ax = plt.gca()
@@ -583,6 +590,10 @@ def _draw_combined_graph(df, title=None):
         # Set the x and y-axis limits to ensure the fill and borders extend to the edges
         ax.set_xlim(xlims)
         ax.set_ylim(new_ylims)
+        print("ylims", new_ylims)
+
+        if force_ylim:
+            ax.set_ylim(force_ylim)
         
         ax.set(xlabel="")
         ax.set(ylabel="")
@@ -604,8 +615,18 @@ def _draw_combined_graph(df, title=None):
 
         plt.title.set_text(title)
     
+    print("average line", average_line.get_label())
+    if legend:
+        handles, labels = ax.get_legend_handles_labels()
+        hue_handles = [average_line] + handles[1:4]
+        hue_labels = ["Average"] + [f"Mouse {i}" for i in range(1, 4)]
+        ax.legend(hue_handles, hue_labels, prop={'size': 14})  # Set the font size to 10
+        # plt.legend(prop={'size': 14})  # Set the font size to 10
 
-    # plt.legend(prop={'size': 14})  # Set the font size to 10
+    if save:
+        create_directory(output_folder)
+        plt.savefig(os.path.join(output_folder, output_filename))
+        print(output_folder, output_filename)
 
 def plot_combined_univariate(rstats_path):
     def get_rstats_files(path):
@@ -710,43 +731,54 @@ def plot_combined_platelets(rstats_path):
     def get_rstats_files(path):
         return glob(f"{path}/*.csv")
 
+    def get_id_from_name(filename):
+        return "_".join(filename.split("_")[:3])
+
     types = ["control", "plerixafor"]
     for t in types:
-        rstats_path = os.path.join(rstats_path, t)
-        rstats_files = sorted(get_rstats_files(rstats_path))
+        t_rstats_path = os.path.join(rstats_path, t)
+        rstats_files = sorted(get_rstats_files(t_rstats_path))
 
         # filter our monte carlo results
         main_rstats_files = [os.path.splitext(os.path.basename(f))[0] for f in rstats_files if "random" not in f]
         rand_rstats_files = [os.path.splitext(os.path.basename(f))[0] for f in rstats_files if "random" in f]
         assert len(main_rstats_files) == len(rand_rstats_files)
-        
+        print(main_rstats_files)
         paired_files = list(zip(main_rstats_files, rand_rstats_files))
-        print(paired_files)
+
+        ids = sorted(list(set([get_id_from_name(f) for f in main_rstats_files])))
+        id_map = {f: i for i, f in enumerate(ids)}
+        sample_map = {}
 
         df = pd.DataFrame()
         for i, pair in enumerate(paired_files):
             filename, rand_filename = pair
 
             # Construct the path for the CSV file
-            fullpath = os.path.join(rstats_path, f"{filename}.csv")
-            rand_fullpath = os.path.join(rstats_path, f"{rand_filename}.csv")
+            fullpath = os.path.join(t_rstats_path, f"{filename}.csv")
+            rand_fullpath = os.path.join(t_rstats_path, f"{rand_filename}.csv")
 
             # Load the CSV file and random CSV file into DataFrames
             rstats = pd.read_csv(fullpath)
             rand_rstats = pd.read_csv(rand_fullpath)
 
-            # Set radius column using first file
+            # Run once at the beginning
             if i == 0:
                 df["Radius (r)"] = pd.Series(np.arange(2, rstats["Radius (r)"].max()+1))
 
             K_norm = normalize(rstats, rand_rstats)
             df[f"Sample {i+1}"] = pd.Series(K_norm)
+            sample_map[f"Sample {i+1}"] = int(id_map[get_id_from_name(filename)])
 
-        print("df", df)
         df['Average'] = df.drop('Radius (r)', axis=1).mean(axis=1)
-        df_long = pd.melt(df, id_vars=["Radius (r)"], value_vars=["Average"]+[f"Sample {i+1}" for i in range(len(paired_files))],
+        df_long = pd.melt(df, id_vars=["Radius (r)"],
+                          value_vars=["Average"]+[f"Sample {i+1}" for i in range(len(paired_files))],
                           var_name="Sample", value_name="K_norm")
-        _draw_combined_graph(df_long, title=t)
+        df_long["Mouse ID"] = df_long["Sample"].map(sample_map)
+        palette = sns.color_palette("hls", len(ids))
+        _draw_combined_graph(df_long, title=t, force_ylim=(-24, 300),
+                             palette=palette, legend=True, save=True,
+                             output_filename=f"ripley_combined_plot_{t}.svg")
 
 def plot_p_values(rstats_path, save=False, output_folder="./ripley_results/"):
     def get_rstats_files(path):
