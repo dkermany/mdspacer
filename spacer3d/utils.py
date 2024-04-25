@@ -604,7 +604,7 @@ def _draw_combined_graph(df, title=None):
         plt.title.set_text(title)
     
 
-    plt.legend(prop={'size': 14})  # Set the font size to 10
+    # plt.legend(prop={'size': 14})  # Set the font size to 10
 
 def plot_combined_univariate(rstats_path):
     def get_rstats_files(path):
@@ -741,6 +741,7 @@ def plot_combined_platelets(rstats_path):
             K_norm = normalize(rstats, rand_rstats)
             df[f"Sample {i+1}"] = pd.Series(K_norm)
 
+        print("df", df)
         df['Average'] = df.drop('Radius (r)', axis=1).mean(axis=1)
         df_long = pd.melt(df, id_vars=["Radius (r)"], value_vars=["Average"]+[f"Sample {i+1}" for i in range(len(paired_files))],
                           var_name="Sample", value_name="K_norm")
