@@ -532,7 +532,7 @@ def plot_individuals(rstats_path, save=False, output_folder="./ripley_results/")
     # fig_legend.savefig('/Users/danielkermany/Desktop/legend_only.svg')
     # plt.savefig("/Users/danielkermany/Desktop/S6.svg", bbox_inches="tight")
 
-def _draw_combined_graph(df, title=None, legend=None, force_ylim=None,
+def _draw_combined_graph(df, title=None, legend=None, var_name=None, force_ylim=None,
                          palette=None, save=False, output_folder="./ripley_results/",
                          output_filename="ripley_combined_plot.svg"):
     # Set the tick label format to plain
@@ -547,8 +547,8 @@ def _draw_combined_graph(df, title=None, legend=None, force_ylim=None,
     # Plot the K(r) values for the data and the random data
     # l_ax = sns.lineplot(data=df, x="Radius (r)", y="K_norm", hue="Sample",
     #                     style="Sample", ax=ax, legend=legend, zorder=3)
-    l_ax = sns.lineplot(data=df, x="Radius (r)", y="K_norm", hue="Mouse ID",
-                        style="Sample", ax=ax, legend=legend, zorder=3,
+    l_ax = sns.lineplot(data=df, x="Radius (r)", y="K_norm", hue=var_name,
+                        style=var_name, ax=ax, legend=legend, zorder=3,
                         palette=palette)
 
     for line in plt.gca().get_lines():
@@ -619,7 +619,7 @@ def _draw_combined_graph(df, title=None, legend=None, force_ylim=None,
     if legend:
         handles, labels = ax.get_legend_handles_labels()
         hue_handles = [average_line] + handles[1:4]
-        hue_labels = ["Average"] + [f"Mouse {i}" for i in range(1, 4)]
+        hue_labels = ["Average"] + [f"{var_name} {i}" for i in range(1, 4)]
         ax.legend(hue_handles, hue_labels, prop={'size': 14})  # Set the font size to 10
         # plt.legend(prop={'size': 14})  # Set the font size to 10
 
@@ -734,6 +734,8 @@ def plot_combined_platelets(rstats_path):
     def get_id_from_name(filename):
         return "_".join(filename.split("_")[:3])
 
+    ttest_data = {}
+
     types = ["control", "plerixafor"]
     for t in types:
         t_rstats_path = os.path.join(rstats_path, t)
@@ -750,6 +752,14 @@ def plot_combined_platelets(rstats_path):
         id_map = {f: i for i, f in enumerate(ids)}
         sample_map = {}
 
+        # Stores filename: segment rstat values for every mouse
+        # This allows averaging across multiple samples from each mouse
+        individual_mouse_segments = {f: pd.DataFrame() for f in ids}
+
+        # After average rstats values are calculated for each mice, the average
+        # is migrated to the all_mice_averages_df dataframe
+        all_mice_averages_df = pd.DataFrame()
+
         df = pd.DataFrame()
         for i, pair in enumerate(paired_files):
             filename, rand_filename = pair
@@ -764,21 +774,61 @@ def plot_combined_platelets(rstats_path):
 
             # Run once at the beginning
             if i == 0:
-                df["Radius (r)"] = pd.Series(np.arange(2, rstats["Radius (r)"].max()+1))
+                for dframe in [df, all_mice_averages_df] + list(individual_mouse_segments.values()):
+                    dframe["Radius (r)"] = pd.Series(np.arange(2, rstats["Radius (r)"].max()+1))
+                # all_mice_averages_df["Radius (r)"] =  pd.Series(np.arange(2, rstats["Radius (r)"].max()+1))
+                # for mouse_id, mouse_df in individual_mouse_segments.items():
+                #     mouse_df["Radius (r)"] = pd.Series(np.arange(2, rstats["Radius (r)"].max()+1))
 
+            # Perform MDSpacer normalization to normalize 95% interval to
+            # between -1 and 1 with other values adjusted proportionately
             K_norm = normalize(rstats, rand_rstats)
+
+            individual_mouse_segments[get_id_from_name(filename)][f"Sample {i+1}"] = pd.Series(K_norm)
+            
             df[f"Sample {i+1}"] = pd.Series(K_norm)
             sample_map[f"Sample {i+1}"] = int(id_map[get_id_from_name(filename)])
 
-        df['Average'] = df.drop('Radius (r)', axis=1).mean(axis=1)
-        df_long = pd.melt(df, id_vars=["Radius (r)"],
-                          value_vars=["Average"]+[f"Sample {i+1}" for i in range(len(paired_files))],
-                          var_name="Sample", value_name="K_norm")
-        df_long["Mouse ID"] = df_long["Sample"].map(sample_map)
+
+        for i, (mouse_id, mouse_df) in enumerate(individual_mouse_segments.items()):
+            all_mice_averages_df[f"Mouse {i+1}"] = mouse_df.iloc[:, 1:].mean(axis=1)
+            
+        all_mice_averages = all_mice_averages_df.drop('Radius (r)', axis=1)
+        all_mice_averages_df["Average"] = all_mice_averages.mean(axis=1)
+        df_long = pd.melt(all_mice_averages_df, id_vars=["Radius (r)"],
+                          value_vars=["Average"]+[f"Mouse {i+1}" for i in range(len(ids))],
+                          var_name="Mouse", value_name="K_norm")
+
+        # df_long = pd.melt(df, id_vars=["Radius (r)"],
+        #                   value_vars=["Average"]+[f"Sample {i+1}" for i in range(len(paired_files))],
+        #                   var_name="Sample", value_name="K_norm")
+        # df_long["Mouse ID"] = df_long["Sample"].map(sample_map)
         palette = sns.color_palette("hls", len(ids))
-        _draw_combined_graph(df_long, title=t, force_ylim=(-24, 300),
-                             palette=palette, legend=True, save=True,
+        print("df_long", df_long)
+        _draw_combined_graph(df_long, title=t, var_name="Mouse", force_ylim=(-24, 300),
+                             palette=palette, legend=True, save=False,
                              output_filename=f"ripley_combined_plot_{t}.svg")
+
+        mouse_columns = [col for col in all_mice_averages_df.columns if col.startswith("Mouse")]
+        columns_to_select = ["Radius (r)"] + mouse_columns
+
+        ttest_data[t] = all_mice_averages_df[columns_to_select]
+
+    print("ttest_data", ttest_data)
+    ttest_results = run_ttest(ttest_data["control"], ttest_data["plerixafor"])
+    print("ttest_results", ttest_results)
+
+def run_ttest(group1_df, group2_df):
+    p_values = []
+    for (r1, g1), (r2, g2) in zip(group1_df.groupby("Radius (r)"), group2_df.groupby("Radius (r)")):
+        mouse_columns = [col for col in g1.columns if col.startswith("Mouse")]
+        g1_values = g1[mouse_columns].values.tolist()[0]
+        g2_values = g2[mouse_columns].values.tolist()[0]
+        print(r1, g1_values, g2_values)
+
+        t_stat, p_value = stats.ttest_ind(g1_values, g2_values)
+        p_values.append(p_value)
+    return p_values
 
 def plot_p_values(rstats_path, save=False, output_folder="./ripley_results/"):
     def get_rstats_files(path):
